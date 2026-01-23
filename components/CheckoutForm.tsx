@@ -19,41 +19,69 @@ export function CheckoutForm() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  
+  // Wait for recurly to become available if script is loaded but instance isn't ready yet
+  useEffect(() => {
+    if (isLoaded && !recurly) {
+      // Poll for recurly to become available (useRecurlyBase might return null initially)
+      const checkInterval = setInterval(() => {
+        // Force re-render by checking window.Recurly
+        if (typeof window !== 'undefined' && ((window as any).Recurly || (window as any).recurly)) {
+          // Trigger re-render by updating formData (harmless update)
+          setFormData(prev => ({ ...prev }));
+        }
+      }, 100);
+      
+      const timeout = setTimeout(() => {
+        clearInterval(checkInterval);
+      }, 5000); // Stop checking after 5 seconds
+      
+      return () => {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [isLoaded, recurly]);
+
   const cardNumberRef = useRef<HTMLDivElement>(null);
-  const expirationRef = useRef<HTMLDivElement>(null);
+  const expirationMonthRef = useRef<HTMLDivElement>(null);
+  const expirationYearRef = useRef<HTMLDivElement>(null);
   const cvvRef = useRef<HTMLDivElement>(null);
-  const elementsRef = useRef<{
-    cardNumber: any;
-    expiration: any;
-    cvv: any;
-  } | null>(null);
 
   // Mount Recurly Elements when Recurly is loaded
   useEffect(() => {
-    if (!recurly || !isLoaded) return;
+    if (!isLoaded) return;
+    if (!recurly) {
+      // If recurly is null but window.Recurly exists, it might still be initializing
+      // The useRecurly hook should eventually provide it
+      return;
+    }
 
     const elements = recurly.Elements();
     const cardNumber = elements.CardNumberElement();
-    const expiration = (elements as any).ExpiryDateElement();
-    const cvv = (elements as any).CVVElement();
+    const cardMonth = elements.CardMonthElement();
+    const cardYear = elements.CardYearElement();
+    const cardCvv = elements.CardCvvElement();
 
     if (cardNumberRef.current) {
       cardNumber.attach(cardNumberRef.current);
     }
-    if (expirationRef.current) {
-      expiration.attach(expirationRef.current);
+    if (expirationMonthRef.current) {
+      cardMonth.attach(expirationMonthRef.current);
+    }
+    if (expirationYearRef.current) {
+      cardYear.attach(expirationYearRef.current);
     }
     if (cvvRef.current) {
-      cvv.attach(cvvRef.current);
+      cardCvv.attach(cvvRef.current);
     }
-
-    elementsRef.current = { cardNumber, expiration, cvv };
 
     return () => {
       (cardNumber as any).destroy?.();
-      (expiration as any).destroy?.();
-      (cvv as any).destroy?.();
-      elementsRef.current = null;
+      (cardMonth as any).destroy?.();
+      (cardYear as any).destroy?.();
+      (cardCvv as any).destroy?.();
     };
   }, [recurly, isLoaded]);
 
@@ -74,13 +102,21 @@ export function CheckoutForm() {
     setError(null);
 
     try {
-      if (!elementsRef.current) {
+      if (!formRef.current) {
         throw new Error('Payment form not ready. Please wait a moment and try again.');
       }
 
       // Create a Recurly token from the payment form
-      // The Elements automatically capture card data
-      const token = await (recurly as any).token(elementsRef.current);
+      // According to Recurly.js docs, pass the form element to token()
+      const token = await new Promise((resolve, reject) => {
+        (recurly as any).token(formRef.current, (err: any, token: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(token);
+          }
+        });
+      });
 
       // Send token to your backend API
       const response = await fetch('/api/recurly/subscribe', {
@@ -117,9 +153,18 @@ export function CheckoutForm() {
   };
 
   if (!isLoaded) {
+    const publicKey = process.env.NEXT_PUBLIC_RECURLY_PUBLIC_KEY;
+    const hasRecurlyScript = typeof window !== 'undefined' && !!(window as any).Recurly;
+    
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-gray-600 dark:text-gray-400">Loading payment form...</div>
+      <div className="flex flex-col items-center justify-center p-8">
+        <div className="text-gray-600 dark:text-gray-400 mb-4">Loading payment form...</div>
+        {!publicKey && (
+          <div className="text-sm text-yellow-600">Warning: NEXT_PUBLIC_RECURLY_PUBLIC_KEY not set</div>
+        )}
+        {publicKey && !hasRecurlyScript && (
+          <div className="text-sm text-yellow-600">Loading Recurly.js script...</div>
+        )}
       </div>
     );
   }
@@ -150,13 +195,13 @@ export function CheckoutForm() {
     // If key exists but recurly is null, script might still be loading
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-gray-600 dark:text-gray-400">Loading payment form...</div>
+        <div className="text-gray-600 dark:text-gray-400">Loading payment form... </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-gray-100">
           Complete Your Subscription
@@ -215,34 +260,44 @@ export function CheckoutForm() {
 
       {/* Recurly.js payment form will be mounted here */}
       <div id="recurly-elements" className="space-y-4">
-        <div>
+        <div className="w-full">
           <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Card Number
           </label>
           <div
             ref={cardNumberRef}
-            className="rounded-lg border border-gray-300 p-3 dark:border-gray-600 dark:bg-gray-800"
+            className="w-full rounded-lg border border-gray-300 p-3 dark:border-gray-600 dark:bg-gray-800"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="w-full">
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Expiration
+              Month
             </label>
             <div
-              ref={expirationRef}
-              className="rounded-lg border border-gray-300 p-3 dark:border-gray-600 dark:bg-gray-800"
+              ref={expirationMonthRef}
+              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
             />
           </div>
 
-          <div>
+          <div className="w-full">
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Year
+            </label>
+            <div
+              ref={expirationYearRef}
+              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
+            />
+          </div>
+
+          <div className="w-full">
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               CVV
             </label>
             <div
               ref={cvvRef}
-              className="rounded-lg border border-gray-300 p-3 dark:border-gray-600 dark:bg-gray-800"
+              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
             />
           </div>
         </div>

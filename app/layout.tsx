@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Quicksand } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { RecurlyProvider } from "@/components/RecurlyProvider";
 import { Header } from "@/components/Header";
@@ -25,6 +26,14 @@ export default function RootLayout({
       <body
         className={`${quicksand.variable} font-sans antialiased`}
       >
+        <Script
+          src="https://js.recurly.com/v4/recurly.js"
+          strategy="beforeInteractive"
+        />
+        <Script
+          src="https://0af5a0a3-18d3-4997-ab6f-415981565466.redfastlabs.com/assets/redfast.js"
+          strategy="afterInteractive"
+        />
         <RecurlyProvider>
           <Header />
           {children}
