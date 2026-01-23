@@ -8,8 +8,53 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-quicksand);
+  
+  /* Custom colors */
+  --color-mint: #f1f9f4;
+  --color-dark-green: #214e34;
+}
+
+/* Define custom Tailwind utilities for the new colors */
+@layer utilities {
+  .bg-mint {
+    background-color: #f1f9f4;
+  }
+  .dark-green {
+    color: #214e34;
+  }
+  .bg-dark-green {
+    background-color: #214e34;
+  }
+  .text-dark-green {
+    color: #214e34;
+  }
+  .border-dark-green {
+    border-color: #214e34;
+  }
+}
+
+/* Custom reusable component classes using @apply */
+@layer components {
+  /* Example: Button styles */
+  .btn-primary {
+    @apply rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700;
+  }
+  
+  /* Example: Card styles */
+  .card {
+    @apply rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md;
+  }
+  
+  /* Example: Video overlay image */
+  .video-overlay-image {
+    @apply h-auto w-[15vw] max-w-[300px] min-w-[100px] drop-shadow-lg;
+  }
+
+  .header-link {
+    @apply text-base font-medium text-dark-green underline underline-offset-4 decoration-mint transition-colors hover:decoration-dark-green;
+  }
+  
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,3 +69,4 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
