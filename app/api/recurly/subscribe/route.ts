@@ -31,15 +31,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate a unique account code (Recurly requires account code to be unique)
+    // Use email-based code or generate UUID
+    const accountCode = `acc-${account.email.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}`;
+
     // Create subscription using Recurly API
     // Recurly Client v4 uses createSubscription() method directly
     const subscription = await recurlyClient.createSubscription({
       planCode,
       account: {
-        code: account.email, // Use email as account code, or generate a unique ID
+        code: accountCode, // Unique account code
         email: account.email,
-        firstName: account.firstName,
-        lastName: account.lastName,
+        firstName: account.firstName || undefined,
+        lastName: account.lastName || undefined,
       },
       currency: 'USD', // Adjust based on your needs
       billingInfo: {
@@ -59,16 +63,22 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating subscription:', error);
     
-    // Handle Recurly-specific errors
+    // Handle Recurly-specific errors with more detail
     if (error?.message) {
+      // Recurly API errors often have more details in error object
+      const errorDetails = error?.params || error?.fields || {};
+      const errorMessage = error.message + (Object.keys(errorDetails).length > 0 
+        ? ` Details: ${JSON.stringify(errorDetails)}` 
+        : '');
+      
       return NextResponse.json(
-        { error: error.message },
+        { error: errorMessage, details: errorDetails },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Failed to create subscription' },
+      { error: 'Failed to create subscription', details: error },
       { status: 500 }
     );
   }

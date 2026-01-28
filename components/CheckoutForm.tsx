@@ -19,27 +19,30 @@ export function CheckoutForm() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elementsReady, setElementsReady] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   
   // Wait for recurly to become available if script is loaded but instance isn't ready yet
   useEffect(() => {
     if (isLoaded && !recurly) {
       // Poll for recurly to become available (useRecurlyBase might return null initially)
+      let attempts = 0;
+      const maxAttempts = 500; // 5 seconds
+      
       const checkInterval = setInterval(() => {
-        // Force re-render by checking window.Recurly
-        if (typeof window !== 'undefined' && ((window as any).Recurly || (window as any).recurly)) {
-          // Trigger re-render by updating formData (harmless update)
-          setFormData(prev => ({ ...prev }));
+        attempts++;
+        // Force re-render by updating formData (harmless update)
+        // This will cause useRecurly to be called again
+        setFormData(prev => ({ ...prev }));
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.warn('Recurly instance not available after 5 seconds');
         }
       }, 100);
       
-      const timeout = setTimeout(() => {
-        clearInterval(checkInterval);
-      }, 5000); // Stop checking after 5 seconds
-      
       return () => {
         clearInterval(checkInterval);
-        clearTimeout(timeout);
       };
     }
   }, [isLoaded, recurly]);
@@ -48,41 +51,60 @@ export function CheckoutForm() {
   const expirationMonthRef = useRef<HTMLDivElement>(null);
   const expirationYearRef = useRef<HTMLDivElement>(null);
   const cvvRef = useRef<HTMLDivElement>(null);
+  const elementsInstanceRef = useRef<any>(null);
 
   // Mount Recurly Elements when Recurly is loaded
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      setElementsReady(false);
+      return;
+    }
     if (!recurly) {
-      // If recurly is null but window.Recurly exists, it might still be initializing
-      // The useRecurly hook should eventually provide it
+      setElementsReady(false);
       return;
     }
 
-    const elements = recurly.Elements();
-    const cardNumber = elements.CardNumberElement();
-    const cardMonth = elements.CardMonthElement();
-    const cardYear = elements.CardYearElement();
-    const cardCvv = elements.CardCvvElement();
+    // Wait for DOM refs to be ready
+    if (!cardNumberRef.current || !expirationMonthRef.current || !expirationYearRef.current || !cvvRef.current) {
+      setElementsReady(false);
+      return;
+    }
 
-    if (cardNumberRef.current) {
+    try {
+      const elements = recurly.Elements();
+      elementsInstanceRef.current = elements; // Store Elements instance for tokenization
+      
+      const cardNumber = elements.CardNumberElement();
+      const cardMonth = elements.CardMonthElement();
+      const cardYear = elements.CardYearElement();
+      const cardCvv = elements.CardCvvElement();
+
+      // Attach Elements to DOM refs
       cardNumber.attach(cardNumberRef.current);
-    }
-    if (expirationMonthRef.current) {
       cardMonth.attach(expirationMonthRef.current);
-    }
-    if (expirationYearRef.current) {
       cardYear.attach(expirationYearRef.current);
-    }
-    if (cvvRef.current) {
       cardCvv.attach(cvvRef.current);
-    }
 
-    return () => {
-      (cardNumber as any).destroy?.();
-      (cardMonth as any).destroy?.();
-      (cardYear as any).destroy?.();
-      (cardCvv as any).destroy?.();
-    };
+      // Mark Elements as ready
+      setElementsReady(true);
+
+      return () => {
+        try {
+          (cardNumber as any).destroy?.();
+          (cardMonth as any).destroy?.();
+          (cardYear as any).destroy?.();
+          (cardCvv as any).destroy?.();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        elementsInstanceRef.current = null;
+        setElementsReady(false);
+      };
+    } catch (error: any) {
+      console.error('Error mounting Recurly Elements:', error?.message || error);
+      setError(`Failed to initialize payment form: ${error?.message || 'Unknown error'}`);
+      setElementsReady(false);
+    }
   }, [recurly, isLoaded]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -106,41 +128,65 @@ export function CheckoutForm() {
         throw new Error('Payment form not ready. Please wait a moment and try again.');
       }
 
-      // Create a Recurly token from the payment form
-      // According to Recurly.js docs, pass the form element to token()
+      // Ensure Elements are ready
+      if (!elementsReady || !elementsInstanceRef.current) {
+        throw new Error('Payment form Elements not initialized. Please wait a moment and try again.');
+      }
+
       const token = await new Promise((resolve, reject) => {
-        (recurly as any).token(formRef.current, (err: any, token: any) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(token);
+        // Recurly.js v4 Elements API: pass Elements instance to token()
+        // The second parameter is optional data (first_name, last_name, etc.)
+        (recurly as any).token(
+          elementsInstanceRef.current,
+          {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          },
+          (err: any, token: any) => {
+            if (err) {
+              console.error('Recurly tokenization error:', err);
+              console.error('Error fields:', err.fields);
+              console.error('Error details:', err.details);
+              reject(err);
+            } else {
+              console.log('Recurly token created:', token?.id);
+              resolve(token);
+            }
           }
-        });
+        );
       });
 
       // Send token to your backend API
+      const requestBody = {
+        planCode,
+        account: {
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        },
+        billingInfo: {
+          token: (token as any).id,
+        },
+      };
+      
+      console.log('Sending subscription request:', { ...requestBody, billingInfo: { token: '***' } });
+
       const response = await fetch('/api/recurly/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          planCode,
-          account: {
-            email: formData.email,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-          },
-          billingInfo: {
-            token: (token as any).id,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+      
+      console.log('Subscription response:', { status: response.status, data });
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create subscription');
+        // Show more detailed error message
+        const errorMessage = data.error || data.message || 'Failed to create subscription';
+        throw new Error(errorMessage);
       }
 
       // Redirect to success page or subscription management
@@ -195,7 +241,7 @@ export function CheckoutForm() {
     // If key exists but recurly is null, script might still be loading
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-gray-600 dark:text-gray-400">Loading payment form... </div>
+        <div className="text-gray-600 dark:text-gray-400">  </div>
       </div>
     );
   }
@@ -303,13 +349,13 @@ export function CheckoutForm() {
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={isProcessing}
-        className="w-full rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
-      >
-        {isProcessing ? 'Processing...' : 'Complete Subscription'}
-      </button>
+          <button
+            type="submit"
+            disabled={isProcessing || !elementsReady}
+            className="w-full rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            {isProcessing ? 'Processing...' : !elementsReady ? 'Initializing payment form...' : 'Complete Subscription'}
+          </button>
     </form>
   );
 }

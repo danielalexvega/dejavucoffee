@@ -135,10 +135,9 @@ export function useRecurly() {
   // Check if window.Recurly exists (the script is loaded)
   const windowRecurly = typeof window !== 'undefined' && ((window as any).Recurly || (window as any).recurly);
   const RecurlyConstructor = typeof window !== 'undefined' ? (window as any).Recurly : null;
-  const recurlyLowercase = typeof window !== 'undefined' ? (window as any).recurly : null;
 
   // Use the hook from @recurly/react-recurly
-  // This will handle script loading automatically
+  // This will handle script loading automatically and provide a configured instance
   let recurlyFromHook: any = null;
   try {
     recurlyFromHook = useRecurlyBase();
@@ -147,38 +146,65 @@ export function useRecurly() {
     // This means RecurlyProviderBase hasn't initialized yet
   }
   
-  // If useRecurlyBase returns null but window.Recurly exists, create instance directly
+  // If useRecurlyBase returns null but script is loaded, create instance directly
   useEffect(() => {
+    // Prefer the instance from RecurlyProviderBase
     if (recurlyFromHook) {
       setRecurlyInstance(recurlyFromHook);
       return;
     }
     
+    // If hook doesn't provide instance but script is loaded, create our own
     if (!recurlyInstance && windowRecurly && publicKey) {
-      // Try to create instance from window.Recurly constructor
+      // Try uppercase Recurly constructor first
       if (RecurlyConstructor && typeof RecurlyConstructor === 'function') {
         try {
+          console.log('Creating Recurly instance with publicKey:', publicKey.substring(0, 10) + '...');
           const instance = new RecurlyConstructor({ publicKey });
+          console.log('Recurly instance created successfully:', !!instance);
           setRecurlyInstance(instance);
           return;
-        } catch (e) {
-          // Constructor failed, try lowercase
+        } catch (e: any) {
+          console.error('Failed to create Recurly instance with uppercase constructor:', e?.message || e);
         }
       }
       
-      // If uppercase constructor didn't work, check if lowercase is already an instance
-      if (recurlyLowercase && typeof recurlyLowercase === 'object' && recurlyLowercase !== null) {
-        // Check if it has Elements method (it's already an instance)
-        if (typeof (recurlyLowercase as any).Elements === 'function') {
-          setRecurlyInstance(recurlyLowercase);
+      // Try lowercase recurly if uppercase didn't work
+      const recurlyLowercase = typeof window !== 'undefined' ? (window as any).recurly : null;
+      if (recurlyLowercase && typeof recurlyLowercase === 'function') {
+        try {
+          console.log('Trying lowercase recurly constructor');
+          const instance = new recurlyLowercase({ publicKey });
+          console.log('Recurly instance created successfully with lowercase:', !!instance);
+          setRecurlyInstance(instance);
           return;
+        } catch (e: any) {
+          console.error('Failed to create Recurly instance with lowercase constructor:', e?.message || e);
+        }
+      }
+      
+      // If both constructors failed, check if lowercase is already an instance
+      if (recurlyLowercase && typeof recurlyLowercase === 'object' && recurlyLowercase !== null) {
+        if (typeof (recurlyLowercase as any).Elements === 'function') {
+          // It's already an instance, but might need configuration
+          try {
+            if (typeof (recurlyLowercase as any).configure === 'function') {
+              (recurlyLowercase as any).configure({ publicKey });
+            }
+            console.log('Using existing recurly instance');
+            setRecurlyInstance(recurlyLowercase);
+            return;
+          } catch (e: any) {
+            console.error('Failed to configure existing recurly instance:', e?.message || e);
+          }
         }
       }
     }
-  }, [recurlyFromHook, windowRecurly, publicKey, recurlyInstance, RecurlyConstructor, recurlyLowercase]);
+  }, [recurlyFromHook, windowRecurly, publicKey, recurlyInstance, RecurlyConstructor]);
   
+  // Use instance from hook if available, otherwise use our direct instance
   return {
-    recurly: recurlyFromHook || recurlyInstance, // Use hook's instance or our direct instance
+    recurly: recurlyFromHook || recurlyInstance,
     isLoaded: !!windowRecurly, // Mark as loaded if script exists
   };
 }
