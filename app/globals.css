@@ -9,7 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-quicksand);
-  
+  --font-sailers: var(--font-sailers);
   /* Custom colors */
   --color-mint: #f1f9f4;
   --color-dark-green: #214e34;
@@ -52,7 +52,7 @@
   }
 
   .header-link {
-    @apply text-base font-medium text-dark-green underline underline-offset-4 decoration-mint transition-colors hover:decoration-dark-green;
+    @apply text-2xl font-medium text-dark-green underline underline-offset-4 decoration-mint transition-colors hover:decoration-dark-green;
   }
   
 }

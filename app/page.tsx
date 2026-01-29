@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { Hero } from "@/components/Hero";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-mint font-sans">
       <main className="flex w-full flex-col items-center justify-center px-4 py-12 sm:px-8">
+      <Hero
+          imageSrc="/warning.png"
+          imageAlt="Warning - do not buy this coffee"
+          height="small"
+          overlay={false}
+        />
       <VideoPlayer
           src="/dejavu-video2.mp4"
           alt="Deja Vu Coffee Video"

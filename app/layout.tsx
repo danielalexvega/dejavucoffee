@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Quicksand } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { RecurlyProvider } from "@/components/RecurlyProvider";
@@ -10,6 +11,25 @@ const quicksand = Quicksand({
   subsets: ["latin"],
   variable: "--font-quicksand",
 });
+
+// Example: Loading a custom font file (.otf, .ttf, .woff, etc.)
+// Place your font file in: fonts/YourFontName-Regular.otf
+// Uncomment and modify the path below:
+
+const customFont = localFont({
+  src: [
+    {
+      path: "../public/fonts/sailers.otf",
+      weight: "400",
+      style: "normal",
+    },
+
+
+  ],
+  variable: "--font-sailers",
+  display: "swap", // Optional: improves loading performance
+});
+
 
 export const metadata: Metadata = {
   title: "Coffee Subscription Demo",
@@ -24,7 +44,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${quicksand.variable} font-sans antialiased`}
+        // className={`${quicksand.variable} font-sans antialiased`}
+        // Add your custom font variable here when ready:
+        className={`${quicksand.variable} ${customFont.variable} font-sans antialiased`}
       >
         <Script
           src="https://js.recurly.com/v4/recurly.js"

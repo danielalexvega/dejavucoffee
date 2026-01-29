@@ -2,6 +2,7 @@ import { getSubscriptionPlans } from '@/lib/sanity-queries';
 import { getRecurlyPlans, getAllRecurlyPlans } from '@/lib/recurly-queries';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
 import { SubscriptionPlan } from '@/types/subscription';
+import { Hero } from '@/components/Hero';
 
 export default async function SubscriptionsPage() {
   let plans: SubscriptionPlan[] = [];
@@ -84,8 +85,14 @@ export default async function SubscriptionsPage() {
   return (
     <div className="min-h-screen bg-mint py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <Hero
+          imageSrc="/subscription-hero.png"
+          imageAlt="Subscription Hero Image"
+          height="small"
+          overlay={false}
+        />
         <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-4xl text-dark-green dark:text-gray-100 font-sailers">
             Choose Your Subscription
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">

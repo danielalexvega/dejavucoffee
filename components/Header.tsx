@@ -20,7 +20,7 @@ export function Header() {
         </div>
 
         {/* Navigation - Center */}
-        <nav className="hidden items-center space-x-8 md:flex">
+        <nav className="hidden items-center space-x-8 md:flex font-sailers">
           <Link
             href="/"
             className="header-link"
