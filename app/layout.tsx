@@ -6,6 +6,7 @@ import "./globals.css";
 import { RecurlyProvider } from "@/components/RecurlyProvider";
 import { CartProvider } from "@/contexts/CartContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 
 const quicksand = Quicksand({
@@ -59,12 +60,14 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
         <RecurlyProvider>
-          <CartProvider>
-            <ToastProvider>
-              <Header />
-              {children}
-            </ToastProvider>
-          </CartProvider>
+          <AuthProvider>
+            <CartProvider>
+              <ToastProvider>
+                <Header />
+                {children}
+              </ToastProvider>
+            </CartProvider>
+          </AuthProvider>
         </RecurlyProvider>
       </body>
     </html>
