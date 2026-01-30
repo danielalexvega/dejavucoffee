@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { RecurlyProvider } from "@/components/RecurlyProvider";
+import { CartProvider } from "@/contexts/CartContext";
 import { Header } from "@/components/Header";
 
 const quicksand = Quicksand({
@@ -57,8 +58,10 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
         <RecurlyProvider>
-          <Header />
-          {children}
+          <CartProvider>
+            <Header />
+            {children}
+          </CartProvider>
         </RecurlyProvider>
       </body>
     </html>

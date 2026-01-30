@@ -1,10 +1,10 @@
 import { sanityClient } from './sanity';
 import { SubscriptionPlan } from '@/types/subscription';
-import imageUrlBuilder from '@sanity/image-url';
+import { createImageUrlBuilder } from '@sanity/image-url';
 import { SanityImage } from '@/types/subscription';
 
 // Image URL builder for Sanity images
-const builder = imageUrlBuilder(sanityClient);
+const builder = createImageUrlBuilder(sanityClient);
 
 export function urlFor(source: SanityImage | undefined) {
   if (!source) return undefined;
@@ -43,9 +43,15 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
       _id,
       _type,
       title,
+      slug,
       description,
       image,
-      recurlyPlanCode
+      roastLevel,
+      origin,
+      flavorNotes,
+      caffeineLevel,
+      recurlyPlanCode,
+      featured
     }`;
 
     const plans = await sanityClient.fetch<SubscriptionPlan[]>(query);
@@ -70,9 +76,15 @@ export async function getSubscriptionPlanById(id: string): Promise<SubscriptionP
       _id,
       _type,
       title,
+      slug,
       description,
       image,
-      recurlyPlanCode
+      roastLevel,
+      origin,
+      flavorNotes,
+      caffeineLevel,
+      recurlyPlanCode,
+      featured
     }`;
 
     const plan = await sanityClient.fetch<SubscriptionPlan | null>(query, { id });
@@ -85,24 +97,61 @@ export async function getSubscriptionPlanById(id: string): Promise<SubscriptionP
 
 /**
  * Fetch a subscription plan by Recurly plan code
+ * Note: recurlyPlanCode is an array, so we check if it contains the code
  */
 export async function getSubscriptionPlanByRecurlyCode(
   recurlyPlanCode: string
 ): Promise<SubscriptionPlan | null> {
   try {
-    const query = `*[recurlyPlanCode == $recurlyPlanCode][0] {
+    const query = `*[recurlyPlanCode match $recurlyPlanCode][0] {
       _id,
       _type,
       title,
+      slug,
       description,
       image,
-      recurlyPlanCode
+      roastLevel,
+      origin,
+      flavorNotes,
+      caffeineLevel,
+      recurlyPlanCode,
+      featured
     }`;
 
     const plan = await sanityClient.fetch<SubscriptionPlan | null>(query, { recurlyPlanCode });
     return plan;
   } catch (error) {
     console.error('Error fetching subscription plan by Recurly code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch a subscription plan by slug
+ */
+export async function getSubscriptionPlanBySlug(
+  slug: string
+): Promise<SubscriptionPlan | null> {
+  try {
+    const query = `*[_type == "coffee" && slug.current == $slug][0] {
+      _id,
+      _type,
+      title,
+      slug,
+      description,
+      image,
+      roastLevel,
+      origin,
+      flavorNotes,
+      caffeineLevel,
+      recurlyPlanCode,
+      featured
+    }`;
+
+    const plan = await sanityClient.fetch<SubscriptionPlan | null>(query, { slug });
+    return plan;
+  } catch (error) {
+    console.error('Error fetching subscription plan by slug:', error);
     throw error;
   }
 }

@@ -16,14 +16,19 @@ export default async function SubscriptionsPage() {
     plans = await getSubscriptionPlans();
     
     // Fetch plan details from Recurly for each plan
-    const planCodes = plans.map((plan) => plan.recurlyPlanCode).filter(Boolean);
+    // recurlyPlanCode is now an array, so we need to flatten it
+    const planCodes = plans
+      .flatMap((plan) => plan.recurlyPlanCode || [])
+      .filter(Boolean);
     
     if (planCodes.length > 0) {
       const recurlyPlans = await getRecurlyPlans(planCodes);
       
       // Enrich Sanity plans with Recurly plan details
+      // Use the first plan code for now (you may want to handle multiple plans differently)
       plans = plans.map((plan) => {
-        const recurlyPlan = recurlyPlans.get(plan.recurlyPlanCode);
+        const firstPlanCode = plan.recurlyPlanCode?.[0];
+        const recurlyPlan = firstPlanCode ? recurlyPlans.get(firstPlanCode) : null;
         if (recurlyPlan) {
           // Extract price from Recurly plan
           // Recurly plans can have currencies array or pricing object
@@ -86,16 +91,18 @@ export default async function SubscriptionsPage() {
     <div className="min-h-screen bg-mint py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Hero
-          imageSrc="/subscription-hero.png"
+          imageSrc="/getusedtothis.svg"
           imageAlt="Subscription Hero Image"
           height="small"
           overlay={false}
+          maxImageWidth={1200}
+          objectFit="contain"
         />
         <div className="mb-12 text-center">
           <h1 className="text-4xl text-dark-green dark:text-gray-100 font-sailers">
             Choose Your Subscription
           </h1>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
+          <p className="mt-4 text-lg text-dark-green dark:text-gray-400 font-sailers">
             Select the perfect plan for your needs
           </p>
         </div>

@@ -12,10 +12,18 @@ export interface SanityImage {
 export interface SubscriptionPlan {
   _id: string;
   _type: string;
-  title: string; // Changed from 'name' to match Sanity schema
-  description?: string;
-  image?: SanityImage;
-  recurlyPlanCode: string; // Required in schema
+  title: string;
+  slug: {
+    current: string;
+  };
+  description: string; // Required in schema
+  image: SanityImage; // Required in schema
+  roastLevel: 'light' | 'medium' | 'dark';
+  origin: string;
+  flavorNotes?: string[];
+  caffeineLevel?: 'regular' | 'decaf' | 'half-caff';
+  recurlyPlanCode: string[]; // Array of strings in schema
+  featured?: boolean;
   // Recurly plan details (fetched from Recurly API)
   recurlyPlan?: {
     name: string;

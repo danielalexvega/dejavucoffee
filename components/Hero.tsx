@@ -11,6 +11,8 @@ interface HeroProps {
   overlay?: boolean;
   height?: 'small' | 'medium' | 'large' | 'full';
   className?: string;
+  maxImageWidth?: number; // Maximum width in pixels (prevents stretching beyond natural size)
+  objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down'; // How image should fit
 }
 
 const heightClasses = {
@@ -30,22 +32,50 @@ export function Hero({
   overlay = true,
   height = 'medium',
   className = '',
+  maxImageWidth,
+  objectFit = 'cover',
 }: HeroProps) {
   return (
     <section className={`relative w-full overflow-hidden ${heightClasses[height]} ${className}`}>
       {/* Background Image */}
       <div className="absolute inset-0">
-        <Image
-          src={imageSrc}
-          alt={imageAlt}
-          fill
-          className="object-contain"
-          priority
-          sizes="100vw"
-        />
-        {/* Overlay */}
-        {overlay && (
-          <div className="absolute inset-0 bg-black/40" />
+        {maxImageWidth ? (
+          // Constrained image container (prevents stretching beyond natural size)
+          <div className="flex h-full w-full items-center justify-center">
+            <div 
+              className="relative h-full w-full"
+              style={{ maxWidth: `${maxImageWidth}px` }}
+            >
+              <Image
+                src={imageSrc}
+                alt={imageAlt}
+                fill
+                className={`object-${objectFit}`}
+                priority
+                sizes={`${maxImageWidth}px`}
+              />
+              {/* Overlay */}
+              {overlay && (
+                <div className="absolute inset-0 bg-black/40" />
+              )}
+            </div>
+          </div>
+        ) : (
+          // Full-width image container
+          <div className="absolute inset-0">
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              fill
+              className={`object-${objectFit}`}
+              priority
+              sizes="100vw"
+            />
+            {/* Overlay */}
+            {overlay && (
+              <div className="absolute inset-0 bg-black/40" />
+            )}
+          </div>
         )}
       </div>
 

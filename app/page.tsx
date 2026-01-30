@@ -7,10 +7,12 @@ export default function Home() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-mint font-sans">
       <main className="flex w-full flex-col items-center justify-center px-4 py-12 sm:px-8">
       <Hero
-          imageSrc="/warning.png"
+          imageSrc="/thisisademosite.svg"
           imageAlt="Warning - do not buy this coffee"
           height="small"
           overlay={false}
+          maxImageWidth={1200}
+          objectFit="contain"
         />
       <VideoPlayer
           src="/dejavu-video2.mp4"
