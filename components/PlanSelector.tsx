@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/contexts/ToastContext';
 import { usePathname } from 'next/navigation';
 
 interface PlanOption {
@@ -29,6 +30,7 @@ export function PlanSelector({ plans, title, slug }: PlanSelectorProps) {
     plans.length > 0 ? plans[0].code : ''
   );
   const { addItem } = useCart();
+  const { showToast } = useToast();
   const pathname = usePathname();
   
   // Get current slug from pathname if not provided
@@ -67,14 +69,14 @@ export function PlanSelector({ plans, title, slug }: PlanSelectorProps) {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-lg">
-      <h2 className="mb-6 text-2xl font-bold text-dark-green">{title}</h2>
+      <h2 className="mb-2 text-xl text-dark-green text-center font-sailers">Subscribe and Save</h2>
       
       {/* Plan Options */}
-      <div className="mb-6 space-y-3">
+      <div className="mb-6 space-y-2">
         {plans.map((plan) => (
           <label
             key={plan.code}
-            className={`flex cursor-pointer items-center justify-between rounded-lg border-2 p-4 transition-all ${
+            className={`flex cursor-pointer items-center justify-between rounded-lg border-2 p-2 transition-all ${
               selectedPlanCode === plan.code
                 ? 'border-dark-green bg-mint'
                 : 'border-gray-200 bg-white hover:border-gray-300'
@@ -87,15 +89,15 @@ export function PlanSelector({ plans, title, slug }: PlanSelectorProps) {
                 value={plan.code}
                 checked={selectedPlanCode === plan.code}
                 onChange={(e) => setSelectedPlanCode(e.target.value)}
-                className="mr-3 h-4 w-4 text-dark-green focus:ring-dark-green"
+                className="mr-3 h-4 w-4 accent-dark-green focus:ring-dark-green"
               />
               <div>
-                <div className="font-semibold text-gray-900">
+                <div className="text-base font-semibold text-gray-900">
                   {formatInterval(plan.interval)}
                 </div>
               </div>
             </div>
-            <div className="text-lg font-bold text-dark-green">
+            <div className="text-base font-bold text-dark-green">
               {formatPrice(plan.price)}
             </div>
           </label>
@@ -115,11 +117,10 @@ export function PlanSelector({ plans, title, slug }: PlanSelectorProps) {
               interval: selectedPlan.interval,
               slug: currentSlug,
             });
-            // Show feedback (you could add a toast notification here)
-            alert(`${title} added to cart!`);
+            showToast(`${title} added to cart!`);
           }
         }}
-        className="block w-full rounded-lg bg-blue-600 px-6 py-4 text-center text-lg font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+        className="block w-full rounded-lg bg-dark-green px-2 py-2 text-center text-md font-sailers text-white transition-colors hover:bg-mint dark:bg-blue-500 dark:hover:bg-dark-green"
       >
         Add to Cart
       </button>

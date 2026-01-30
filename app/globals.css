@@ -32,6 +32,9 @@
   .border-dark-green {
     border-color: #214e34;
   }
+  .accent-dark-green {
+    accent-color: #214e34;
+  }
 }
 
 /* Custom reusable component classes using @apply */
@@ -54,7 +57,21 @@
   .header-link {
     @apply text-2xl font-medium text-dark-green underline underline-offset-4 decoration-mint transition-colors hover:decoration-dark-green;
   }
-  
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }
 
 @media (prefers-color-scheme: dark) {

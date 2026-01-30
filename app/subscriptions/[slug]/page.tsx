@@ -79,8 +79,14 @@ export default async function SubscriptionPage({ params }: SubscriptionPageProps
           };
           return option;
         })
-        .filter((option): option is NonNullable<typeof option> => option !== null);
-
+        .filter((option): option is NonNullable<typeof option> => option !== null)
+        .sort((a, b) => {
+          // Sort by total time (totalBillingCycles * length) in ascending order
+          const totalTimeA = a.interval.totalBillingCycles * a.interval.length;
+          const totalTimeB = b.interval.totalBillingCycles * b.interval.length;
+          return totalTimeA - totalTimeB;
+        });
+ 
     } else {
       console.log('No recurlyPlanCode array or empty array');
     }
@@ -111,10 +117,15 @@ export default async function SubscriptionPage({ params }: SubscriptionPageProps
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-3 lg:items-start" style={{ overflow: 'visible' }}>
           {/* Left Column - 2/3 width */}
           <div className="lg:col-span-2">
+              {/* Title */}
+              <h1 className="mb-8 text-center text-4xl font-sailers text-dark-green pt-8">
+                {plan.title}
+              </h1>
+
               {/* Image */}
               {imageUrl && (
-                <div className="mb-8">
-                  <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+                <div className="mb-8 flex justify-center">
+                  <div className="relative aspect-square w-1/2 overflow-hidden rounded-lg">
                     <Image
                       src={imageUrl}
                       alt={plan.title}
@@ -128,7 +139,7 @@ export default async function SubscriptionPage({ params }: SubscriptionPageProps
 
               {/* Description */}
               <section className="mb-8">
-                <p className="text-lg leading-relaxed text-gray-700">
+                <p className="text-base leading-relaxed text-gray-700">
                   {plan.description}
                 </p>
               </section>

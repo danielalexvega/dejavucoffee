@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 import { RecurlyProvider } from "@/components/RecurlyProvider";
 import { CartProvider } from "@/contexts/CartContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import { Header } from "@/components/Header";
 
 const quicksand = Quicksand({
@@ -59,8 +60,10 @@ export default function RootLayout({
         />
         <RecurlyProvider>
           <CartProvider>
-            <Header />
-            {children}
+            <ToastProvider>
+              <Header />
+              {children}
+            </ToastProvider>
           </CartProvider>
         </RecurlyProvider>
       </body>
