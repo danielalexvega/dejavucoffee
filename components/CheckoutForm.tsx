@@ -30,6 +30,7 @@ export function CheckoutForm() {
     city: '',
     state: '',
     zip: '',
+    country: 'US',
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -197,6 +198,13 @@ export function CheckoutForm() {
       return;
     }
 
+    // Validate required address fields
+    if (!formData.address?.trim() || !formData.city?.trim() || !formData.state?.trim() || !formData.zip?.trim() || !formData.country?.trim()) {
+      setError('Please fill in all address fields: Street Address, City, State, ZIP Code, and Country.');
+      setIsProcessing(false);
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
 
@@ -212,12 +220,17 @@ export function CheckoutForm() {
 
       const token = await new Promise((resolve, reject) => {
         // Recurly.js v4 Elements API: pass Elements instance to token()
-        // The second parameter is optional data (first_name, last_name, etc.)
+        // Include billing address information in tokenization
         (recurly as any).token(
           elementsInstanceRef.current,
           {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
+            first_name: formData.firstName.trim(),
+            last_name: formData.lastName.trim(),
+            address1: formData.address.trim(),
+            city: formData.city.trim(),
+            state: formData.state.trim(),
+            postal_code: formData.zip.trim(),
+            country: formData.country.trim(),
           },
           (err: any, token: any) => {
             if (err) {
@@ -237,16 +250,17 @@ export function CheckoutForm() {
       const requestBody = {
         planCode,
         account: {
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+          email: formData.email.trim(),
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
         },
         billingInfo: {
           token: (token as any).id,
-          address: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
+          address: formData.address.trim(),
+          city: formData.city.trim(),
+          state: formData.state.trim(),
+          zip: formData.zip.trim(),
+          country: formData.country.trim(),
         },
       };
       
@@ -475,6 +489,80 @@ export function CheckoutForm() {
               pattern="[0-9]{5}(-[0-9]{4})?"
             />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="country" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Country
+          </label>
+          <select
+            id="country"
+            required
+            value={formData.country}
+            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          >
+            <option value="US">United States</option>
+            <option value="CA">Canada</option>
+            <option value="GB">United Kingdom</option>
+            <option value="AU">Australia</option>
+            <option value="DE">Germany</option>
+            <option value="FR">France</option>
+            <option value="IT">Italy</option>
+            <option value="ES">Spain</option>
+            <option value="NL">Netherlands</option>
+            <option value="BE">Belgium</option>
+            <option value="CH">Switzerland</option>
+            <option value="AT">Austria</option>
+            <option value="SE">Sweden</option>
+            <option value="NO">Norway</option>
+            <option value="DK">Denmark</option>
+            <option value="FI">Finland</option>
+            <option value="IE">Ireland</option>
+            <option value="NZ">New Zealand</option>
+            <option value="MX">Mexico</option>
+            <option value="BR">Brazil</option>
+            <option value="AR">Argentina</option>
+            <option value="CL">Chile</option>
+            <option value="CO">Colombia</option>
+            <option value="PE">Peru</option>
+            <option value="JP">Japan</option>
+            <option value="KR">South Korea</option>
+            <option value="CN">China</option>
+            <option value="IN">India</option>
+            <option value="SG">Singapore</option>
+            <option value="HK">Hong Kong</option>
+            <option value="TW">Taiwan</option>
+            <option value="TH">Thailand</option>
+            <option value="MY">Malaysia</option>
+            <option value="ID">Indonesia</option>
+            <option value="PH">Philippines</option>
+            <option value="VN">Vietnam</option>
+            <option value="ZA">South Africa</option>
+            <option value="EG">Egypt</option>
+            <option value="IL">Israel</option>
+            <option value="AE">United Arab Emirates</option>
+            <option value="SA">Saudi Arabia</option>
+            <option value="TR">Turkey</option>
+            <option value="RU">Russia</option>
+            <option value="PL">Poland</option>
+            <option value="CZ">Czech Republic</option>
+            <option value="PT">Portugal</option>
+            <option value="GR">Greece</option>
+            <option value="RO">Romania</option>
+            <option value="HU">Hungary</option>
+            <option value="BG">Bulgaria</option>
+            <option value="HR">Croatia</option>
+            <option value="SK">Slovakia</option>
+            <option value="SI">Slovenia</option>
+            <option value="EE">Estonia</option>
+            <option value="LV">Latvia</option>
+            <option value="LT">Lithuania</option>
+            <option value="LU">Luxembourg</option>
+            <option value="IS">Iceland</option>
+            <option value="MT">Malta</option>
+            <option value="CY">Cyprus</option>
+          </select>
         </div>
       </div>
 
