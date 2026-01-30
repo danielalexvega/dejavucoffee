@@ -9,7 +9,13 @@ import { recurlyClient } from '@/lib/recurly';
  * {
  *   planCode: string,
  *   account: { email: string, firstName?: string, lastName?: string },
- *   billingInfo: { token: string } // Token from Recurly.js
+ *   billingInfo: { 
+ *     token: string, // Token from Recurly.js
+ *     address?: string,
+ *     city?: string,
+ *     state?: string,
+ *     zip?: string
+ *   }
  * }
  */
 export async function POST(request: NextRequest) {
@@ -31,9 +37,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate address fields if provided
+    if (billingInfo.address || billingInfo.city || billingInfo.state || billingInfo.zip) {
+      if (!billingInfo.address || !billingInfo.city || !billingInfo.state || !billingInfo.zip) {
+        return NextResponse.json(
+          { error: 'All address fields (address, city, state, zip) are required if any address field is provided' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Generate a unique account code (Recurly requires account code to be unique)
     // Use email-based code or generate UUID
     const accountCode = `acc-${account.email.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}`;
+
+    // Build billingInfo object with token and address if provided
+    const billingInfoPayload: any = {
+      tokenId: billingInfo.token,
+    };
+
+    // Add address information if provided
+    if (billingInfo.address && billingInfo.city && billingInfo.state && billingInfo.zip) {
+      billingInfoPayload.address = {
+        street1: billingInfo.address,
+        city: billingInfo.city,
+        region: billingInfo.state,
+        postalCode: billingInfo.zip,
+        country: 'US', // Default to US, adjust if needed
+      };
+    }
 
     // Create subscription using Recurly API
     // Recurly Client v4 uses createSubscription() method directly
@@ -46,9 +78,7 @@ export async function POST(request: NextRequest) {
         lastName: account.lastName || undefined,
       },
       currency: 'USD', // Adjust based on your needs
-      billingInfo: {
-        tokenId: billingInfo.token,
-      },
+      billingInfo: billingInfoPayload,
     });
 
     return NextResponse.json({
