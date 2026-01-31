@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useCart } from '@/contexts/CartContext';
-import Image from 'next/image';
+import { Hero } from '@/components/Hero';
+
 
 export function Cart() {
   const { items, removeItem, getTotalPrice, clearCart } = useCart();
@@ -14,7 +15,7 @@ export function Cart() {
   const formatInterval = (interval: { length: number; unit: string; totalBillingCycles: number }) => {
     const totalTime = interval.totalBillingCycles * interval.length;
     const unit = interval.unit.endsWith('s') ? interval.unit : interval.unit;
-    
+
     if (totalTime === 1) {
       const singularUnit = unit.endsWith('s') ? unit.slice(0, -1) : unit;
       return `${totalTime} ${singularUnit}`;
@@ -25,14 +26,20 @@ export function Cart() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-mint py-12">
+      <div className="min-h-screen bg-mint pb-12">
+        <Hero
+          imageSrc="/shoppingCart.svg"
+          imageAlt="About Hero Image"
+          height="small"
+          overlay={false}
+          objectFit="contain"
+        />
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h1 className="mb-8 text-4xl font-bold text-dark-green">Shopping Cart</h1>
           <div className="rounded-lg bg-white p-12 text-center shadow-sm">
-            <p className="mb-4 text-lg text-gray-600">Your cart is empty</p>
+            <p className="mb-4 text-lg text-gray-600 font-sailers">Your coffee cup is empty</p>
             <Link
               href="/subscriptions"
-              className="inline-block rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+              className="inline-block rounded-lg bg-dark-green px-6 py-3 font-medium text-white transition-colors hover:bg-hunter-green"
             >
               Browse Subscriptions
             </Link>
@@ -43,13 +50,20 @@ export function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-mint py-12">
+    <div className="min-h-screen bg-mint pb-12">
+      <Hero
+        imageSrc="/shoppingCart.svg"
+        imageAlt="About Hero Image"
+        height="small"
+        overlay={false}
+        objectFit="contain"
+      />
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-4xl font-bold text-dark-green">Shopping Cart</h1>
+          <h1 className="text-4xl text-dark-green font-sailers">Shopping Cart</h1>
           <button
             onClick={clearCart}
-            className="text-sm text-gray-600 hover:text-dark-green"
+            className="text-sm text-gray-600 underline underline-offset-4 decoration-mint hover:text-dark-green hover:decoration-dark-green cursor-pointer"
           >
             Clear Cart
           </button>
@@ -69,7 +83,7 @@ export function Cart() {
                   {item.planTitle}
                 </Link>
                 <p className="mt-1 text-sm text-gray-600">
-                  {formatInterval(item.interval)}
+                  {formatInterval(item.interval)} of amazing coffee.
                 </p>
                 <p className="mt-2 text-lg font-bold text-dark-green">
                   {formatPrice(item.price.amount)}
@@ -77,7 +91,7 @@ export function Cart() {
               </div>
               <button
                 onClick={() => removeItem(item.id)}
-                className="ml-4 rounded-lg p-2 text-red-600 hover:bg-red-50"
+                className="ml-4 rounded-lg p-2 text-red-600 hover:text-hunter-green cursor-pointer"
                 aria-label="Remove item"
               >
                 <svg
@@ -105,9 +119,9 @@ export function Cart() {
           </div>
           <Link
             href="/checkout"
-            className="block w-full rounded-lg bg-blue-600 px-6 py-4 text-center text-lg font-semibold text-white transition-colors hover:bg-blue-700"
+            className="block w-full rounded-lg bg-dark-green px-6 py-4 text-center text-lg font-sailers text-white transition-colors hover:bg-hunter-green"
           >
-            Proceed to Checkout
+            Checkout Now
           </Link>
           <Link
             href="/subscriptions"

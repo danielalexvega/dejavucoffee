@@ -17,7 +17,7 @@ function CheckoutFormWrapper() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left Column - Checkout Form */}
           <div className="lg:col-span-2">
-            <div className="rounded-lg bg-white p-8 shadow-sm dark:bg-gray-900">
+            <div className="rounded-lg bg-white p-8 shadow-sm dark:bg-dark-green">
               <Suspense fallback={<div>Loading checkout form...</div>}>
                 <CheckoutForm />
               </Suspense>

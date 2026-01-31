@@ -98,6 +98,65 @@ export function RecurlyProvider({ children }: RecurlyProviderProps) {
     };
   }, [publicKey]);
 
+  // Configure Recurly styling once it's ready
+  // IMPORTANT: This hook must be called before any conditional returns
+  useEffect(() => {
+    if (!isRecurlyReady || typeof window === 'undefined' || !publicKey) return;
+
+    const recurlyInstance = (window as any).recurly || (window as any).Recurly;
+    if (!recurlyInstance) return;
+
+    // Configure Recurly with styling options for the iframe fields
+    // This must be called before Elements are created
+    if (typeof recurlyInstance.configure === 'function') {
+      recurlyInstance.configure({
+        publicKey,
+        fields: {
+          // Style all fields
+          all: {
+            style: {
+              fontFamily: 'var(--font-urbanist), sans-serif',
+              fontSize: '14px',
+              fontColor: '#171717',
+              placeholder: {
+                color: '#a3a3a7',
+              },
+            },
+          },
+          // Individual field styling (since we're using separate fields)
+          number: {
+            style: {
+              placeholder: {
+                content: 'Card number',
+              },
+            },
+          },
+          month: {
+            style: {
+              placeholder: {
+                content: 'MM',
+              },
+            },
+          },
+          year: {
+            style: {
+              placeholder: {
+                content: 'YY',
+              },
+            },
+          },
+          cvv: {
+            style: {
+              placeholder: {
+                content: 'CVV',
+              },
+            },
+          },
+        },
+      });
+    }
+  }, [isRecurlyReady, publicKey]);
+
   // If no public key, render children without RecurlyProvider
   if (!publicKey) {
     return <>{children}</>;
@@ -125,19 +184,13 @@ export function useRecurly() {
   const publicKey = process.env.NEXT_PUBLIC_RECURLY_PUBLIC_KEY;
   const [recurlyInstance, setRecurlyInstance] = useState<any>(null);
   
-  if (!publicKey) {
-    return {
-      recurly: null,
-      isLoaded: true, // Mark as loaded even without key
-    };
-  }
-
   // Check if window.Recurly exists (the script is loaded)
   const windowRecurly = typeof window !== 'undefined' && ((window as any).Recurly || (window as any).recurly);
   const RecurlyConstructor = typeof window !== 'undefined' ? (window as any).Recurly : null;
 
   // Use the hook from @recurly/react-recurly
   // This will handle script loading automatically and provide a configured instance
+  // IMPORTANT: Hooks must be called before any conditional returns
   let recurlyFromHook: any = null;
   try {
     recurlyFromHook = useRecurlyBase();
@@ -148,6 +201,10 @@ export function useRecurly() {
   
   // If useRecurlyBase returns null but script is loaded, create instance directly
   useEffect(() => {
+    // Early return inside useEffect is fine
+    if (!publicKey) {
+      return;
+    }
     // Prefer the instance from RecurlyProviderBase
     if (recurlyFromHook) {
       setRecurlyInstance(recurlyFromHook);
@@ -189,7 +246,49 @@ export function useRecurly() {
           // It's already an instance, but might need configuration
           try {
             if (typeof (recurlyLowercase as any).configure === 'function') {
-              (recurlyLowercase as any).configure({ publicKey });
+              (recurlyLowercase as any).configure({
+                publicKey,
+                fields: {
+                  all: {
+                    style: {
+                      fontFamily: 'var(--font-urbanist), sans-serif',
+                      fontSize: '16px',
+                      fontColor: '#171717',
+                      placeholder: {
+                        color: '#a3a3a7',
+                      },
+                    },
+                  },
+                  number: {
+                    style: {
+                      placeholder: {
+                        content: 'Card number',
+                      },
+                    },
+                  },
+                  month: {
+                    style: {
+                      placeholder: {
+                        content: 'MM',
+                      },
+                    },
+                  },
+                  year: {
+                    style: {
+                      placeholder: {
+                        content: 'YY',
+                      },
+                    },
+                  },
+                  cvv: {
+                    style: {
+                      placeholder: {
+                        content: 'CVV',
+                      },
+                    },
+                  },
+                },
+              });
             }
             console.log('Using existing recurly instance');
             setRecurlyInstance(recurlyLowercase);
@@ -203,6 +302,14 @@ export function useRecurly() {
   }, [recurlyFromHook, windowRecurly, publicKey, recurlyInstance, RecurlyConstructor]);
   
   // Use instance from hook if available, otherwise use our direct instance
+  // Conditional return AFTER all hooks have been called
+  if (!publicKey) {
+    return {
+      recurly: null,
+      isLoaded: true, // Mark as loaded even without key
+    };
+  }
+
   return {
     recurly: recurlyFromHook || recurlyInstance,
     isLoaded: !!windowRecurly, // Mark as loaded if script exists

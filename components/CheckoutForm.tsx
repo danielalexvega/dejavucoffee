@@ -132,7 +132,7 @@ export function CheckoutForm() {
         cardCvv.attach(cvvRef.current);
         console.log('[CheckoutForm] CardCvv attached to:', cvvRef.current);
 
-        // Check if iframes were created
+        // Check if iframes were created and constrain their height
         setTimeout(() => {
           const cardNumberIframe = cardNumberRef.current?.querySelector('iframe');
           const monthIframe = expirationMonthRef.current?.querySelector('iframe');
@@ -144,6 +144,24 @@ export function CheckoutForm() {
             year: !!yearIframe,
             cvv: !!cvvIframe,
           });
+          
+          // Constrain iframe heights to 40px
+          [cardNumberIframe, monthIframe, yearIframe, cvvIframe].forEach((iframe) => {
+            if (iframe) {
+              iframe.style.height = '40px';
+              iframe.style.minHeight = '40px';
+              iframe.style.maxHeight = '40px';
+              // Also constrain parent container
+              const parent = iframe.parentElement;
+              if (parent) {
+                parent.style.height = '40px';
+                parent.style.minHeight = '40px';
+                parent.style.maxHeight = '40px';
+                parent.style.overflow = 'hidden';
+              }
+            }
+          });
+          
           if (cardNumberIframe) {
             console.log('[CheckoutForm] CardNumber iframe details:', {
               src: cardNumberIframe.src,
@@ -361,7 +379,7 @@ export function CheckoutForm() {
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
       <div>
         <h2 className="mb-2 text-2xl text-gray-900 dark:text-gray-100 font-sailers">
           Complete Your Subscription
@@ -388,7 +406,7 @@ export function CheckoutForm() {
             required
             value={formData.firstName}
             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-2 py-2 focus:border-mint focus:outline-none focus:ring-1 focus:mint dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="w-full rounded-lg border border-gray-300 px-2 py-2 focus:border-black focus:outline-none focus:ring-1 focus:black dark:border-black dark:bg-mint dark:text-black"
           />
         </div>
 
@@ -402,7 +420,7 @@ export function CheckoutForm() {
             required
             value={formData.lastName}
             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-2 py-2 focus:mint focus:outline-none focus:ring-1 focus:ring-mint dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="form-input"
           />
         </div>
       </div>
@@ -417,7 +435,7 @@ export function CheckoutForm() {
           required
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          className="form-input"
         />
       </div>
 
@@ -437,8 +455,8 @@ export function CheckoutForm() {
             required
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            placeholder="123 Main St"
+            className="form-input"
+            placeholder="4009 Marathon Blvd"
           />
         </div>
 
@@ -453,7 +471,7 @@ export function CheckoutForm() {
               required
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              className="form-input"
               placeholder="City"
             />
           </div>
@@ -468,7 +486,7 @@ export function CheckoutForm() {
               required
               value={formData.state}
               onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              className="form-input"
               placeholder="State"
               maxLength={2}
             />
@@ -484,7 +502,7 @@ export function CheckoutForm() {
               required
               value={formData.zip}
               onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              className="form-input"
               placeholder="12345"
               pattern="[0-9]{5}(-[0-9]{4})?"
             />
@@ -500,7 +518,7 @@ export function CheckoutForm() {
             required
             value={formData.country}
             onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="form-input"
           >
             <option value="US">United States</option>
             <option value="CA">Canada</option>
@@ -574,8 +592,8 @@ export function CheckoutForm() {
           </label>
           <div
             ref={cardNumberRef}
-            className="w-full rounded-lg border border-gray-300 p-3 dark:border-gray-600 dark:bg-gray-800"
-            style={{ minHeight: '40px' }}
+            className="form-input"
+            style={{ height: '40px', minHeight: '40px', maxHeight: '40px', overflow: 'hidden' }}
           />
         </div>
 
@@ -586,8 +604,8 @@ export function CheckoutForm() {
             </label>
             <div
               ref={expirationMonthRef}
-              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
-              style={{ minHeight: '40px' }}
+              className="form-input"
+              style={{ height: '40px', minHeight: '40px', maxHeight: '40px', overflow: 'hidden' }}
             />
           </div>
 
@@ -597,8 +615,8 @@ export function CheckoutForm() {
             </label>
             <div
               ref={expirationYearRef}
-              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
-              style={{ minHeight: '40px' }}
+              className="form-input"
+              style={{ height: '40px', minHeight: '40px', maxHeight: '40px', overflow: 'hidden' }}
             />
           </div>
 
@@ -608,8 +626,8 @@ export function CheckoutForm() {
             </label>
             <div
               ref={cvvRef}
-              className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-800"
-              style={{ minHeight: '40px' }}
+              className="form-input"
+              style={{ height: '40px', minHeight: '40px', maxHeight: '40px', overflow: 'hidden' }}
             />
           </div>
         </div>

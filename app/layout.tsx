@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Quicksand } from "next/font/google";
+import { Urbanist } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
@@ -9,10 +9,10 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 
-const quicksand = Quicksand({
+const urbanist = Urbanist({
   weight: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
-  variable: "--font-quicksand",
+  variable: "--font-urbanist",
 });
 
 // Example: Loading a custom font file (.otf, .ttf, .woff, etc.)
@@ -47,9 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        // className={`${quicksand.variable} font-sans antialiased`}
-        // Add your custom font variable here when ready:
-        className={`${quicksand.variable} ${customFont.variable} font-sans antialiased`}
+        className={`${urbanist.variable} ${customFont.variable} font-sans antialiased`}
       >
         <Script
           src="https://js.recurly.com/v4/recurly.js"

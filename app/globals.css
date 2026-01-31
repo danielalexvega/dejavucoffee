@@ -8,11 +8,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-quicksand);
+  --font-sans: var(--font-urbanist);
   --font-sailers: var(--font-sailers);
   /* Custom colors */
   --color-mint: #f1f9f4;
   --color-dark-green: #214e34;
+  --color-hunter-green: #2a6543;
 }
 
 /* Define custom Tailwind utilities for the new colors */
@@ -25,6 +26,9 @@
   }
   .bg-dark-green {
     background-color: #214e34;
+  }
+  .bg-hunter-green {
+    background-color: #2a6543;
   }
   .text-dark-green {
     color: #214e34;
@@ -41,7 +45,7 @@
 @layer components {
   /* Example: Button styles */
   .btn-primary {
-    @apply rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700;
+    @apply rounded-lg bg-dark-green px-6 py-3 font-medium text-white transition-colors hover:bg-hunter-green;
   }
   
   /* Example: Card styles */
@@ -57,6 +61,34 @@
   .header-link {
     @apply text-2xl font-medium text-dark-green underline underline-offset-4 decoration-mint transition-colors hover:decoration-dark-green;
   }
+
+  .form-input { 
+    @apply w-full rounded-lg border border-gray-300 px-2 py-2 focus:border-black focus:outline-none focus:ring-1 focus:ring-black dark:border-black dark:bg-mint dark:text-black;
+  }
+}
+
+/* Recurly iframe styling - constrain height to single line */
+.recurly-hosted-field,
+.recurly-hosted-field iframe {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+}
+
+/* Ensure Recurly iframe containers don't expand */
+[data-recurly="number"],
+[data-recurly="month"],
+[data-recurly="year"],
+[data-recurly="cvv"] {
+  height: 40px !important;
+  overflow: hidden !important;
+}
+
+/* Target any div containing a Recurly iframe */
+.form-input iframe {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
 }
 
 @keyframes slide-up {
@@ -84,6 +116,6 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-quicksand);
+  font-family: var(--font-urbanist);
 }
 
