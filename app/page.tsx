@@ -20,6 +20,14 @@ export default function Home() {
           className="mb-8"
         />
 
+<Hero
+          imageSrc="/pieceOfCake.svg"
+          imageAlt="Subscriptions with Recurly are a piece of cake"
+          height="small"
+          overlay={false}
+          maxImageWidth={1200}
+          objectFit="contain"
+        />
 
         <div className="mb-8 flex flex-col items-center gap-6 text-center">
           <h1 className="max-w-xs text-4xl font-semibold leading-tight tracking-tight text-dark-green">
