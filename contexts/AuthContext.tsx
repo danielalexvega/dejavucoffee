@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 interface User {
   email: string;
+  firstName?: string;
+  lastName?: string;
   subscriptions?: any[];
 }
 
@@ -12,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; subscriptions?: any[] }>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   isLoading: boolean;
 }
 
@@ -22,6 +25,8 @@ const SESSION_STORAGE_KEY = 'coffee_demo_session';
 
 interface SessionData {
   email: string;
+  firstName?: string;
+  lastName?: string;
   subscriptions?: any[];
   expiresAt: number;
 }
@@ -42,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session.expiresAt > Date.now()) {
             setUser({
               email: session.email,
+              firstName: session.firstName,
+              lastName: session.lastName,
               subscriptions: session.subscriptions,
             });
           } else {
@@ -99,6 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Save session to localStorage
       const sessionData: SessionData = {
         email,
+        firstName: data.account?.firstName,
+        lastName: data.account?.lastName,
         subscriptions: data.subscriptions,
         expiresAt: Date.now() + SESSION_DURATION,
       };
@@ -107,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Update user state
       setUser({
         email,
+        firstName: data.account?.firstName,
+        lastName: data.account?.lastName,
         subscriptions: data.subscriptions,
       });
 
@@ -122,8 +133,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    if (!user) return;
+    
+    const updatedUser = { ...user, ...userData };
+    setUser(updatedUser);
+    
+    // Update localStorage session
+    try {
+      const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (sessionData) {
+        const session: SessionData = JSON.parse(sessionData);
+        const updatedSession: SessionData = {
+          ...session,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          subscriptions: updatedUser.subscriptions,
+        };
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedSession));
+      }
+    } catch (error) {
+      console.error('Error updating session:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

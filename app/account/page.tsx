@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function AccountPage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, updateUser } = useAuth();
   const router = useRouter();
   const [isPausing, setIsPausing] = useState<string | null>(null);
   const [isResuming, setIsResuming] = useState<string | null>(null);
@@ -18,6 +18,7 @@ export default function AccountPage() {
       router.push('/subscriptions');
     }
   }, [isAuthenticated, isLoading, router]);
+
 
   // Refresh subscriptions from Recurly when user is authenticated
   useEffect(() => {
@@ -35,7 +36,17 @@ export default function AccountPage() {
 
           const data = await response.json();
           if (response.ok && data.subscriptions) {
+            console.log('DATA IS RIGHT HERE', data);
             setSubscriptions(data.subscriptions);
+            
+            // Update user object with account information and subscriptions
+            if (data.account) {
+              updateUser({
+                firstName: data.account.firstName,
+                lastName: data.account.lastName,
+                subscriptions: data.subscriptions,
+              });
+            }
           }
         } catch (error) {
           console.error('Error refreshing subscriptions:', error);
@@ -140,11 +151,11 @@ export default function AccountPage() {
     <div className="min-h-screen bg-gray-50 py-12 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 font-sailers">
-            My Account
+          <h1 className="text-3xl text-gray-900 dark:text-gray-100 font-sailers">
+            My Subscription
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Welcome back, {user.email}
+            Welcome back, {user.firstName} {user.lastName}
           </p>
         </div>
 

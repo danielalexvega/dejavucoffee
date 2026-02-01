@@ -14,6 +14,10 @@
   --color-mint: #f1f9f4;
   --color-dark-green: #214e34;
   --color-hunter-green: #2a6543;
+  --color-vanilla: #f1e9d2;
+  --color-wood: #C77557;
+  --color-terracotta: #C16646;
+  --color-slate: #3E5C76;
 }
 
 /* Define custom Tailwind utilities for the new colors */
@@ -30,6 +34,27 @@
   .bg-hunter-green {
     background-color: #2a6543;
   }
+  .bg-vanilla {
+    background-color: #f1e9d2;
+  }
+  .bg-slate {
+    background-color: #3E5C76;
+  }
+  .text-slate {
+    color: #3E5C76;
+  }
+  .bg-terracotta {
+    background-color: #C16646;
+  }
+  .bg-wood {
+    background-color: #C77557;
+  }
+  .text-terracotta {
+    color: #C16646;
+  }
+  .text-vanilla {
+    color: #f1e9d2;
+  } 
   .text-dark-green {
     color: #214e34;
   }
@@ -39,13 +64,26 @@
   .accent-dark-green {
     accent-color: #214e34;
   }
+
+  .bg-charcoal {
+    background-color: #2A3E50;
+  }
+  .text-charcoal {
+    color: #2A3E50;
+  }
+  .bg-steel {
+    background-color: #547EA0;
+  }
 }
 
 /* Custom reusable component classes using @apply */
 @layer components {
   /* Example: Button styles */
   .btn-primary {
-    @apply rounded-lg bg-dark-green px-6 py-3 font-medium text-white transition-colors hover:bg-hunter-green;
+    @apply font-sailers rounded-lg bg-dark-green px-6 py-3 font-medium text-white transition-colors hover:bg-hunter-green;
+  }
+  .btn-secondary {
+    @apply font-sailers rounded-lg border border-dark-green border-2 px-6 py-3 font-sailers text-dark-green dark:text-dark-green transition-colors hover:bg-slate hover:text-white dark:border-dark-green hover:border-slate dark:text-dark-green dark:hover:bg-slate dark:hover:text-white;
   }
   
   /* Example: Card styles */

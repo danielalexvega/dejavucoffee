@@ -66,13 +66,13 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       onClick={handleOverlayClick}
     >
       <div 
-        className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
+        className="relative w-full max-w-sm rounded-lg bg-charcoal p-6 shadow-xl dark:bg-slate"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="absolute right-4 top-6 text-white hover:text-terracotta dark:hover:text-terracotta"
           aria-label="Close"
         >
           <svg
@@ -90,19 +90,19 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </svg>
         </button>
 
-        <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-gray-100 font-sailers">
+        <h2 className="mb-4 text-xl text-gray-900 dark:text-gray-100 font-sailers">
           Login to Your Account
         </h2>
 
         {error && (
-          <div className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <div className="mb-3 rounded-lg bg-terracotta p-3 text-sm text-white dark:bg-terracotta dark:text-white">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="email" className="mb-2 block text-sm font-medium text-white dark:text-white">
               Email Address
             </label>
             <input
@@ -111,14 +111,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full rounded-lg border border-slate px-4 py-2 focus:border-slate focus:outline-none focus:ring-2 focus:ring-slate dark:border-slate dark:bg-white dark:text-black"
               placeholder="your@email.com"
               disabled={isSubmitting}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700 dark:text-white">
               Password
             </label>
             <input
@@ -127,7 +127,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full rounded-lg border border-slate px-4 py-2 focus:border-slate focus:outline-none focus:ring-2 focus:ring-slate dark:border-slate dark:bg-white dark:text-black"
               placeholder="Enter your password"
               disabled={isSubmitting}
             />
@@ -136,7 +136,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="w-full rounded-lg bg-slate px-4 py-2 font-sailers text-sm font-medium text-white transition-colors hover:bg-terracotta disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate dark:hover:bg-charcoal"
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
