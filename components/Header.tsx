@@ -49,14 +49,6 @@ export function Header() {
             >
               About Us
             </Link>
-            {isAuthenticated && (
-              <Link
-                href="/account"
-                className="header-link"
-              >
-                My Account
-              </Link>
-            )}
           </nav>
 
           {/* Icons - Right */}
@@ -69,7 +61,7 @@ export function Header() {
               <div className="flex items-center space-x-3">
                 <Link
                   href="/account"
-                  className="cursor-pointer rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-dark-green"
+                  className="relative cursor-pointer rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-dark-green"
                   aria-label="My Account"
                   title={user?.email}
                 >
@@ -86,6 +78,22 @@ export function Header() {
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
+                  {/* Checkmark badge */}
+                  <div className="absolute -top-0 -right-0 flex h-4 w-4 items-center justify-center rounded-full bg-dark-green">
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
                 </Link>
                 <button
                   onClick={logout}

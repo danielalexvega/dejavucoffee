@@ -148,9 +148,17 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 dark:bg-gray-900">
+    <div className="min-h-screen bg-charcoal py-12 dark:bg-charcoal">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <div 
+          className="mb-8 relative bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/cookie-charcoal.svg)',
+            backgroundSize: '100% auto',
+            paddingBottom: '20%', // Add padding to prevent cropping (adjust percentage based on SVG aspect ratio)
+            minHeight: '150px', // Minimum height to ensure SVG is visible
+          }}
+        >
           <h1 className="text-3xl text-gray-900 dark:text-gray-100 font-sailers">
             My Subscription
           </h1>
@@ -159,14 +167,14 @@ export default function AccountPage() {
           </p>
         </div>
 
-        <div className="mb-6 flex justify-end">
+        {/* <div className="mb-6 flex justify-end">
           <button
             onClick={logout}
             className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             Logout
           </button>
-        </div>
+        </div> */}
 
         {!subscriptions || subscriptions.length === 0 ? (
           <div className="rounded-lg bg-yellow-50 p-6 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
