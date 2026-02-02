@@ -129,6 +129,31 @@
   max-height: 40px !important;
 }
 
+/* Specifically target the card number field to prevent height: 100% */
+[data-recurly="number"] iframe,
+.form-input:has([data-recurly="number"]) iframe {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  max-width: 100% !important;
+}
+
+/* Prevent card number container from expanding - target by position (first form-input in recurly-elements) */
+#recurly-elements > div:first-child .form-input,
+#recurly-elements > div:first-child .form-input iframe {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Target card number field container specifically */
+#recurly-elements > div:first-child .form-input {
+  display: flex !important;
+  align-items: center !important;
+}
+
 @keyframes slide-up {
   from {
     transform: translateY(100%);

@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
 
       // Iterate through subscriptions
       if (subscriptionsResponse && typeof subscriptionsResponse.each === 'function') {
+
         for await (const sub of subscriptionsResponse.each()) {
           subscriptions.push(sub);
           // Limit to 100 subscriptions
@@ -88,14 +89,16 @@ export async function POST(request: NextRequest) {
       console.error('Error fetching subscriptions:', error);
     }
 
+    console.log('SUBSCRIPTIONS', subscriptions);
+
     // Format subscription data for frontend
     const formattedSubscriptions = subscriptions.map((sub: any) => ({
       uuid: sub.uuid,
       state: sub.state,
       planCode: sub.plan?.code,
       planName: sub.plan?.name,
-      currentPeriodStart: sub.currentPeriodStart,
-      currentPeriodEnd: sub.currentPeriodEnd,
+      currentPeriodStart: sub.currentPeriodStartedAt,
+      currentPeriodEnd: sub.currentPeriodEndsAt,
       quantity: sub.quantity,
       unitAmount: sub.unitAmount,
       currency: sub.currency,

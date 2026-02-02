@@ -14,7 +14,17 @@ import { recurlyClient } from '@/lib/recurly';
  *     address?: string,
  *     city?: string,
  *     state?: string,
- *     zip?: string
+ *     zip?: string,
+ *     country?: string
+ *   },
+ *   shippingAddress: {
+ *     firstName: string,
+ *     lastName: string,
+ *     address: string,
+ *     city: string,
+ *     state: string,
+ *     zip: string,
+ *     country: string
  *   }
  * }
  */
@@ -28,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { planCode, account, billingInfo } = body;
+    const { planCode, account, billingInfo, shippingAddress } = body;
 
     console.log('Received subscription request:', {
       planCode,
@@ -41,6 +51,13 @@ export async function POST(request: NextRequest) {
         zip: billingInfo?.zip,
         country: billingInfo?.country,
       },
+      shippingAddress: {
+        address: shippingAddress?.address,
+        city: shippingAddress?.city,
+        state: shippingAddress?.state,
+        zip: shippingAddress?.zip,
+        country: shippingAddress?.country,
+      },
     });
 
     if (!planCode || !account?.email || !billingInfo?.token) {
@@ -50,17 +67,148 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate that all required address fields are provided
+    // Validate that all required billing address fields are provided
     if (!billingInfo.address || !billingInfo.city || !billingInfo.state || !billingInfo.zip || !billingInfo.country) {
       return NextResponse.json(
-        { error: 'All address fields are required: address, city, state, zip, and country' },
+        { error: 'All billing address fields are required: address, city, state, zip, and country' },
         { status: 400 }
       );
     }
 
-    // Generate a unique account code (Recurly requires account code to be unique)
-    // Use email-based code or generate UUID
-    const accountCode = `acc-${account.email.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}`;
+    // Validate that all required shipping address fields are provided
+    if (!shippingAddress || !shippingAddress.address || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip || !shippingAddress.country) {
+      return NextResponse.json(
+        { error: 'All shipping address fields are required: address, city, state, zip, and country' },
+        { status: 400 }
+      );
+    }
+
+    // Check if account already exists by email
+    let existingAccount = null;
+    try {
+      const accountsResponse = recurlyClient.listAccounts({
+        params: {
+          email: account.email,
+        },
+      });
+
+      // Iterate through accounts to find matching email
+      if (accountsResponse && typeof accountsResponse.each === 'function') {
+        for await (const acc of accountsResponse.each()) {
+          if (acc.email === account.email) {
+            existingAccount = acc;
+            break;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error checking for existing account:', error);
+      // Continue with account creation if lookup fails
+    }
+
+    let accountId: string;
+    let accountCode: string;
+
+    if (existingAccount) {
+      // Use existing account
+      accountId = existingAccount.id;
+      accountCode = existingAccount.code;
+      console.log('Using existing account:', accountCode);
+    } else {
+      // Create new account
+      accountCode = `acc-${account.email.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}`;
+      console.log('Creating new account:', accountCode);
+      
+      const newAccount = await recurlyClient.createAccount({
+        code: accountCode,
+        email: account.email,
+        firstName: account.firstName || undefined,
+        lastName: account.lastName || undefined,
+      });
+      
+      accountId = newAccount.id;
+      console.log('Created new account with ID:', accountId);
+    }
+
+    // Check for existing shipping addresses and compare with new address
+    // Normalize address fields for comparison (trim whitespace, lowercase)
+    const normalizeAddress = (addr: any) => ({
+      firstName: (addr.firstName || '').trim().toLowerCase(),
+      lastName: (addr.lastName || '').trim().toLowerCase(),
+      street1: (addr.street1 || addr.address || '').trim().toLowerCase(),
+      city: (addr.city || '').trim().toLowerCase(),
+      region: (addr.region || addr.state || '').trim().toLowerCase(),
+      postalCode: (addr.postalCode || addr.zip || '').trim().toLowerCase(),
+      country: (addr.country || '').trim().toLowerCase(),
+    });
+
+    const newAddressNormalized = normalizeAddress({
+      firstName: shippingAddress.firstName,
+      lastName: shippingAddress.lastName,
+      address: shippingAddress.address,
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      zip: shippingAddress.zip,
+      country: shippingAddress.country,
+    });
+
+    // List existing shipping addresses for the account
+    let existingShippingAddressId: string | null = null;
+    try {
+      console.log('Checking for existing shipping addresses for account:', accountId);
+      const addressesResponse = recurlyClient.listShippingAddresses(accountId, {
+        params: { limit: 200 },
+      });
+
+      // Iterate through existing addresses to find a match
+      if (addressesResponse && typeof addressesResponse.each === 'function') {
+        for await (const existingAddr of addressesResponse.each()) {
+          const existingAddrNormalized = normalizeAddress(existingAddr);
+          
+          // Compare all address fields
+          if (
+            existingAddrNormalized.firstName === newAddressNormalized.firstName &&
+            existingAddrNormalized.lastName === newAddressNormalized.lastName &&
+            existingAddrNormalized.street1 === newAddressNormalized.street1 &&
+            existingAddrNormalized.city === newAddressNormalized.city &&
+            existingAddrNormalized.region === newAddressNormalized.region &&
+            existingAddrNormalized.postalCode === newAddressNormalized.postalCode &&
+            existingAddrNormalized.country === newAddressNormalized.country
+          ) {
+            existingShippingAddressId = existingAddr.id;
+            console.log('Found matching shipping address, reusing ID:', existingShippingAddressId);
+            break;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error checking for existing shipping addresses:', error);
+      // Continue with creating new address if lookup fails
+    }
+
+    let shippingAddressId: string;
+
+    if (existingShippingAddressId) {
+      // Reuse existing shipping address
+      shippingAddressId = existingShippingAddressId;
+      console.log('Reusing existing shipping address ID:', shippingAddressId);
+    } else {
+      // Create new shipping address
+      console.log('No matching shipping address found, creating new one for account:', accountId);
+      const shippingAddressData = {
+        firstName: shippingAddress.firstName,
+        lastName: shippingAddress.lastName,
+        street1: shippingAddress.address,
+        city: shippingAddress.city,
+        region: shippingAddress.state,
+        postalCode: shippingAddress.zip,
+        country: shippingAddress.country,
+      };
+
+      const createdShippingAddress = await recurlyClient.createShippingAddress(accountId, shippingAddressData);
+      shippingAddressId = createdShippingAddress.id;
+      console.log('Created new shipping address with ID:', shippingAddressId);
+    }
 
     // Build billingInfo object with token only
     // When using a token, address information is already included in the token
@@ -69,8 +217,10 @@ export async function POST(request: NextRequest) {
       tokenId: billingInfo.token,
     };
 
-    console.log('Creating subscription with billingInfo (token only):', {
+    console.log('Creating subscription with billingInfo and shippingAddressId:', {
       tokenId: '***',
+      shippingAddressId,
+      accountCode,
       note: 'Address info is included in the token',
     });
 
@@ -80,7 +230,7 @@ export async function POST(request: NextRequest) {
     const subscription = await recurlyClient.createSubscription({
       planCode,
       account: {
-        code: accountCode, // Unique account code
+        code: accountCode, // Account code (existing or new)
         email: account.email,
         firstName: account.firstName || undefined,
         lastName: account.lastName || undefined,
@@ -89,17 +239,150 @@ export async function POST(request: NextRequest) {
       currency: 'USD', // Adjust based on your needs
     });
 
-    return NextResponse.json({
-      success: true,
-      subscription: {
-        uuid: subscription.uuid,
-        state: subscription.state,
-        plan: subscription.plan,
-        account: subscription.account,
-      },
+    console.log('Subscription created successfully:', {
+      uuid: subscription.uuid,
+      id: subscription.id,
+      state: subscription.state,
+      hasShippingAddress: !!subscription.shippingAddress,
+      subscriptionKeys: Object.keys(subscription),
     });
+
+    // Wait a moment for subscription to be fully available before updating
+    // Sometimes there's a slight delay between creation and availability
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Update subscription to add shipping address
+    // shippingAddressId must be set after subscription creation
+    // Try using UUID first, then ID if UUID doesn't work
+    let updatedSubscription = null;
+    let updateError = null;
+    
+    // Try with UUID first
+    try {
+      console.log('Attempting to update subscription with UUID:', subscription.uuid);
+      updatedSubscription = await recurlyClient.updateSubscription(subscription.uuid, {
+        shippingAddressId: shippingAddressId,
+      });
+      console.log('Subscription updated successfully with UUID');
+    } catch (uuidError: any) {
+      console.log('Update with UUID failed, trying with ID:', uuidError?.message);
+      updateError = uuidError;
+      
+      // If UUID fails and we have an ID, try with ID
+      if (subscription.id && subscription.id !== subscription.uuid) {
+        try {
+          console.log('Attempting to update subscription with ID:', subscription.id);
+          updatedSubscription = await recurlyClient.updateSubscription(subscription.id, {
+            shippingAddressId: shippingAddressId,
+          });
+          console.log('Subscription updated successfully with ID');
+          updateError = null;
+        } catch (idError: any) {
+          console.error('Update with ID also failed:', idError?.message);
+          updateError = idError;
+        }
+      }
+    }
+
+    if (updatedSubscription) {
+      return NextResponse.json({
+        success: true,
+        subscription: {
+          uuid: updatedSubscription.uuid || subscription.uuid,
+          state: updatedSubscription.state || subscription.state,
+          plan: updatedSubscription.plan || subscription.plan,
+          account: updatedSubscription.account || subscription.account,
+        },
+      });
+    } else {
+      // If update fails, still return success with the created subscription
+      // The shipping address can be added later if needed
+      console.warn('Shipping address update failed, but subscription was created successfully');
+      console.error('Update error details:', updateError?.message, updateError?.params);
+      
+      return NextResponse.json({
+        success: true,
+        subscription: {
+          uuid: subscription.uuid,
+          state: subscription.state,
+          plan: subscription.plan,
+          account: subscription.account,
+        },
+        warning: 'Subscription created successfully, but shipping address could not be updated. You may need to update it manually in Recurly.',
+        updateError: updateError?.message || 'Unknown error',
+      });
+    }
   } catch (error: any) {
     console.error('Error creating subscription:', error);
+    
+    // Handle duplicate subscription error specifically
+    // If the error is about duplicate subscription, try with a future renewal date
+    if (error?.message?.includes('already have a subscription to this plan') || 
+        error?.message?.includes('duplicate subscription')) {
+      console.log('Duplicate subscription detected, retrying with future renewal date');
+      
+      try {
+        // Calculate a future renewal date (30 days from now) to make subscription unique
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        const futureRenewalDate = futureDate.toISOString().split('T')[0];
+        
+        const subscription = await recurlyClient.createSubscription({
+          planCode,
+          account: {
+            code: accountCode,
+            email: account.email,
+            firstName: account.firstName || undefined,
+            lastName: account.lastName || undefined,
+            billingInfo: billingInfoPayload,
+          },
+          currency: 'USD',
+          firstRenewalDate: futureRenewalDate, // Set future renewal date to allow duplicate
+        });
+
+        // Update subscription to add shipping address
+        const subscriptionId = subscription.id || subscription.uuid;
+        
+        try {
+          const updatedSubscription = await recurlyClient.updateSubscription(subscriptionId, {
+            shippingAddressId: shippingAddressId,
+          });
+
+          return NextResponse.json({
+            success: true,
+            subscription: {
+              uuid: updatedSubscription.uuid || subscription.uuid,
+              state: updatedSubscription.state || subscription.state,
+              plan: updatedSubscription.plan || subscription.plan,
+              account: updatedSubscription.account || subscription.account,
+            },
+          });
+        } catch (updateError: any) {
+          console.error('Error updating subscription with shipping address in retry:', updateError);
+          // If update fails, still return success with the created subscription
+          return NextResponse.json({
+            success: true,
+            subscription: {
+              uuid: subscription.uuid,
+              state: subscription.state,
+              plan: subscription.plan,
+              account: subscription.account,
+            },
+            warning: 'Subscription created but shipping address update failed.',
+          });
+        }
+      } catch (retryError: any) {
+        console.error('Error retrying subscription creation:', retryError);
+        // If retry also fails, return the original error
+        return NextResponse.json(
+          { 
+            error: 'Failed to create subscription. Please contact support if you need multiple subscriptions to the same plan.',
+            details: retryError?.message || retryError 
+          },
+          { status: 400 }
+        );
+      }
+    }
     
     // Handle Recurly-specific errors with more detail
     if (error?.message) {

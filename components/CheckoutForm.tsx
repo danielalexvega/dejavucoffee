@@ -31,6 +31,12 @@ export function CheckoutForm() {
     state: '',
     zip: '',
     country: 'US',
+    shippingSameAsBilling: true,
+    shippingAddress: '',
+    shippingCity: '',
+    shippingState: '',
+    shippingZip: '',
+    shippingCountry: 'US',
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -70,6 +76,20 @@ export function CheckoutForm() {
   const elementsInstanceRef = useRef<any>(null);
 
   // Mount Recurly Elements when Recurly is loaded
+  // Sync shipping address with billing address when checkbox is checked
+  useEffect(() => {
+    if (formData.shippingSameAsBilling) {
+      setFormData(prev => ({
+        ...prev,
+        shippingAddress: prev.address,
+        shippingCity: prev.city,
+        shippingState: prev.state,
+        shippingZip: prev.zip,
+        shippingCountry: prev.country,
+      }));
+    }
+  }, [formData.address, formData.city, formData.state, formData.zip, formData.country, formData.shippingSameAsBilling]);
+
   useEffect(() => {
     console.log('[CheckoutForm] useEffect triggered', { isLoaded, hasRecurly: !!recurly });
     
@@ -151,6 +171,7 @@ export function CheckoutForm() {
               iframe.style.height = '40px';
               iframe.style.minHeight = '40px';
               iframe.style.maxHeight = '40px';
+              iframe.style.width = '100%';
               // Also constrain parent container
               const parent = iframe.parentElement;
               if (parent) {
@@ -158,14 +179,47 @@ export function CheckoutForm() {
                 parent.style.minHeight = '40px';
                 parent.style.maxHeight = '40px';
                 parent.style.overflow = 'hidden';
+                parent.style.display = 'flex';
+                parent.style.alignItems = 'center';
               }
             }
           });
           
+          // Specifically target card number field to prevent height: 100%
           if (cardNumberIframe) {
+            // Remove any height: 100% styles
+            cardNumberIframe.style.height = '40px';
+            cardNumberIframe.style.minHeight = '40px';
+            cardNumberIframe.style.maxHeight = '40px';
+            
+            // Ensure parent containers don't have height: 100%
+            let currentParent = cardNumberIframe.parentElement;
+            let depth = 0;
+            while (currentParent && depth < 5) {
+              if (currentParent === cardNumberRef.current) break;
+              const computedHeight = window.getComputedStyle(currentParent).height;
+              if (computedHeight === '100%' || computedHeight === 'auto') {
+                currentParent.style.height = '40px';
+                currentParent.style.minHeight = '40px';
+                currentParent.style.maxHeight = '40px';
+              }
+              currentParent = currentParent.parentElement;
+              depth++;
+            }
+            
+            // Ensure the ref container itself doesn't have height: 100%
+            if (cardNumberRef.current) {
+              cardNumberRef.current.style.height = '40px';
+              cardNumberRef.current.style.minHeight = '40px';
+              cardNumberRef.current.style.maxHeight = '40px';
+              cardNumberRef.current.style.display = 'flex';
+              cardNumberRef.current.style.alignItems = 'center';
+            }
+            
             console.log('[CheckoutForm] CardNumber iframe details:', {
               src: cardNumberIframe.src,
               style: cardNumberIframe.style.cssText,
+              computedHeight: window.getComputedStyle(cardNumberIframe).height,
               pointerEvents: window.getComputedStyle(cardNumberIframe).pointerEvents,
             });
           }
@@ -216,11 +270,19 @@ export function CheckoutForm() {
       return;
     }
 
-    // Validate required address fields
+    // Validate required billing address fields
     if (!formData.address?.trim() || !formData.city?.trim() || !formData.state?.trim() || !formData.zip?.trim() || !formData.country?.trim()) {
-      setError('Please fill in all address fields: Street Address, City, State, ZIP Code, and Country.');
-      setIsProcessing(false);
+      setError('Please fill in all billing address fields: Street Address, City, State, ZIP Code, and Country.');
       return;
+    }
+
+    // Validate shipping address fields
+    // If shipping is different from billing, validate shipping fields
+    if (!formData.shippingSameAsBilling) {
+      if (!formData.shippingAddress?.trim() || !formData.shippingCity?.trim() || !formData.shippingState?.trim() || !formData.shippingZip?.trim() || !formData.shippingCountry?.trim()) {
+        setError('Please fill in all shipping address fields: Street Address, City, State, ZIP Code, and Country.');
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -264,6 +326,23 @@ export function CheckoutForm() {
         );
       });
 
+      // Determine shipping address (use billing if same, otherwise use shipping fields)
+      const shippingAddress = formData.shippingSameAsBilling
+        ? formData.address.trim()
+        : formData.shippingAddress.trim();
+      const shippingCity = formData.shippingSameAsBilling
+        ? formData.city.trim()
+        : formData.shippingCity.trim();
+      const shippingState = formData.shippingSameAsBilling
+        ? formData.state.trim()
+        : formData.shippingState.trim();
+      const shippingZip = formData.shippingSameAsBilling
+        ? formData.zip.trim()
+        : formData.shippingZip.trim();
+      const shippingCountry = formData.shippingSameAsBilling
+        ? formData.country.trim()
+        : formData.shippingCountry.trim();
+
       // Send token to your backend API
       const requestBody = {
         planCode,
@@ -279,6 +358,15 @@ export function CheckoutForm() {
           state: formData.state.trim(),
           zip: formData.zip.trim(),
           country: formData.country.trim(),
+        },
+        shippingAddress: {
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          address: shippingAddress,
+          city: shippingCity,
+          state: shippingState,
+          zip: shippingZip,
+          country: shippingCountry,
         },
       };
       
@@ -582,6 +670,181 @@ export function CheckoutForm() {
             <option value="CY">Cyprus</option>
           </select>
         </div>
+      </div>
+
+      {/* Shipping Address Information */}
+      <div className="border-t border-gray-200 pt-6">
+        <div className="mb-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.shippingSameAsBilling}
+              onChange={(e) => {
+                const isSame = e.target.checked;
+                setFormData({
+                  ...formData,
+                  shippingSameAsBilling: isSame,
+                  // When checked, copy billing to shipping
+                  shippingAddress: isSame ? formData.address : formData.shippingAddress,
+                  shippingCity: isSame ? formData.city : formData.shippingCity,
+                  shippingState: isSame ? formData.state : formData.shippingState,
+                  shippingZip: isSame ? formData.zip : formData.shippingZip,
+                  shippingCountry: isSame ? formData.country : formData.shippingCountry,
+                });
+              }}
+              className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Shipping address is the same as billing address
+            </span>
+          </label>
+        </div>
+
+        {!formData.shippingSameAsBilling && (
+          <>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Shipping Address
+            </h3>
+            
+            <div className="mb-4">
+              <label htmlFor="shippingAddress" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Street Address
+              </label>
+              <input
+                type="text"
+                id="shippingAddress"
+                required={!formData.shippingSameAsBilling}
+                value={formData.shippingAddress}
+                onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
+                className="form-input"
+                placeholder="4009 Marathon Blvd"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label htmlFor="shippingCity" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  City
+                </label>
+                <input
+                  type="text"
+                  id="shippingCity"
+                  required={!formData.shippingSameAsBilling}
+                  value={formData.shippingCity}
+                  onChange={(e) => setFormData({ ...formData, shippingCity: e.target.value })}
+                  className="form-input"
+                  placeholder="City"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="shippingState" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  State
+                </label>
+                <input
+                  type="text"
+                  id="shippingState"
+                  required={!formData.shippingSameAsBilling}
+                  value={formData.shippingState}
+                  onChange={(e) => setFormData({ ...formData, shippingState: e.target.value })}
+                  className="form-input"
+                  placeholder="State"
+                  maxLength={2}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="shippingZip" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  ZIP Code
+                </label>
+                <input
+                  type="text"
+                  id="shippingZip"
+                  required={!formData.shippingSameAsBilling}
+                  value={formData.shippingZip}
+                  onChange={(e) => setFormData({ ...formData, shippingZip: e.target.value })}
+                  className="form-input"
+                  placeholder="12345"
+                  pattern="[0-9]{5}(-[0-9]{4})?"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="shippingCountry" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Country
+              </label>
+              <select
+                id="shippingCountry"
+                required={!formData.shippingSameAsBilling}
+                value={formData.shippingCountry}
+                onChange={(e) => setFormData({ ...formData, shippingCountry: e.target.value })}
+                className="form-input"
+              >
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="GB">United Kingdom</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="IT">Italy</option>
+                <option value="ES">Spain</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="CH">Switzerland</option>
+                <option value="AT">Austria</option>
+                <option value="SE">Sweden</option>
+                <option value="NO">Norway</option>
+                <option value="DK">Denmark</option>
+                <option value="FI">Finland</option>
+                <option value="IE">Ireland</option>
+                <option value="NZ">New Zealand</option>
+                <option value="MX">Mexico</option>
+                <option value="BR">Brazil</option>
+                <option value="AR">Argentina</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="PE">Peru</option>
+                <option value="JP">Japan</option>
+                <option value="KR">South Korea</option>
+                <option value="CN">China</option>
+                <option value="IN">India</option>
+                <option value="SG">Singapore</option>
+                <option value="HK">Hong Kong</option>
+                <option value="TW">Taiwan</option>
+                <option value="TH">Thailand</option>
+                <option value="MY">Malaysia</option>
+                <option value="ID">Indonesia</option>
+                <option value="PH">Philippines</option>
+                <option value="VN">Vietnam</option>
+                <option value="ZA">South Africa</option>
+                <option value="EG">Egypt</option>
+                <option value="IL">Israel</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="TR">Turkey</option>
+                <option value="RU">Russia</option>
+                <option value="PL">Poland</option>
+                <option value="CZ">Czech Republic</option>
+                <option value="PT">Portugal</option>
+                <option value="GR">Greece</option>
+                <option value="RO">Romania</option>
+                <option value="HU">Hungary</option>
+                <option value="BG">Bulgaria</option>
+                <option value="HR">Croatia</option>
+                <option value="SK">Slovakia</option>
+                <option value="SI">Slovenia</option>
+                <option value="EE">Estonia</option>
+                <option value="LV">Latvia</option>
+                <option value="LT">Lithuania</option>
+                <option value="LU">Luxembourg</option>
+                <option value="IS">Iceland</option>
+                <option value="MT">Malta</option>
+                <option value="CY">Cyprus</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Recurly.js payment form will be mounted here */}

@@ -141,10 +141,14 @@ export default function AccountPage() {
   };
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
+    // Recurly returns amounts as decimals (e.g., 169.9), not cents
+    // Format to always show 2 decimal places
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency,
-    }).format(amount / 100); // Recurly amounts are in cents
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
   };
 
   return (
@@ -201,11 +205,8 @@ export default function AccountPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {subscription.planName || subscription.planCode || 'Subscription'}
+                      {subscription.planName || 'Subscription'}
                     </h3>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                      Plan Code: {subscription.planCode}
-                    </p>
 
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>

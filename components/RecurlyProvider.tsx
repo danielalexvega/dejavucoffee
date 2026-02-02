@@ -129,6 +129,9 @@ export function RecurlyProvider({ children }: RecurlyProviderProps) {
               placeholder: {
                 content: 'Card number',
               },
+              height: '40px',
+              minHeight: '40px',
+              maxHeight: '40px',
             },
           },
           month: {
@@ -264,6 +267,9 @@ export function useRecurly() {
                       placeholder: {
                         content: 'Card number',
                       },
+                      height: '40px',
+                      minHeight: '40px',
+                      maxHeight: '40px',
                     },
                   },
                   month: {
