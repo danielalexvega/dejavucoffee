@@ -29,6 +29,16 @@ import { recurlyClient } from '@/lib/recurly';
  * }
  */
 export async function POST(request: NextRequest) {
+  // Declare variables that might be used in catch block
+  let planCode: string | undefined;
+  let account: any;
+  let billingInfo: any;
+  let shippingAddress: any;
+  let accountCode: string | undefined;
+  let accountId: string | undefined;
+  let billingInfoPayload: any;
+  let shippingAddressId: string | undefined;
+
   try {
     if (!recurlyClient) {
       return NextResponse.json(
@@ -38,7 +48,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { planCode, account, billingInfo, shippingAddress } = body;
+    planCode = body.planCode;
+    account = body.account;
+    billingInfo = body.billingInfo;
+    shippingAddress = body.shippingAddress;
 
     console.log('Received subscription request:', {
       planCode,
@@ -106,8 +119,7 @@ export async function POST(request: NextRequest) {
       // Continue with account creation if lookup fails
     }
 
-    let accountId: string;
-    let accountCode: string;
+    // accountId and accountCode are already declared at function scope
 
     if (existingAccount) {
       // Use existing account
@@ -186,7 +198,7 @@ export async function POST(request: NextRequest) {
       // Continue with creating new address if lookup fails
     }
 
-    let shippingAddressId: string;
+    // shippingAddressId is already declared at function scope
 
     if (existingShippingAddressId) {
       // Reuse existing shipping address
@@ -317,8 +329,10 @@ export async function POST(request: NextRequest) {
     
     // Handle duplicate subscription error specifically
     // If the error is about duplicate subscription, try with a future renewal date
-    if (error?.message?.includes('already have a subscription to this plan') || 
-        error?.message?.includes('duplicate subscription')) {
+    // Only retry if we have all the required variables (meaning we got past validation)
+    if ((error?.message?.includes('already have a subscription to this plan') || 
+        error?.message?.includes('duplicate subscription')) &&
+        planCode && accountCode && billingInfoPayload && shippingAddressId) {
       console.log('Duplicate subscription detected, retrying with future renewal date');
       
       try {
