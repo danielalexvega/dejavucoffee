@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  userId: string | null; // Unique User ID for Redfast and analytics
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; subscriptions?: any[] }>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const SESSION_STORAGE_KEY = 'coffee_demo_session';
+const USER_ID_STORAGE_KEY = 'coffee_demo_user_id';
 
 interface SessionData {
   email: string;
@@ -31,14 +33,45 @@ interface SessionData {
   expiresAt: number;
 }
 
+// Generate a UUID v4
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// Get or create a User ID from localStorage
+function getOrCreateUserId(): string {
+  try {
+    let userId = localStorage.getItem(USER_ID_STORAGE_KEY);
+    if (!userId) {
+      // Generate new UUID if one doesn't exist
+      userId = generateUUID();
+      localStorage.setItem(USER_ID_STORAGE_KEY, userId);
+    }
+    return userId;
+  } catch (error) {
+    console.error('Error getting/creating User ID:', error);
+    // Fallback: generate a new ID even if localStorage fails
+    return generateUUID();
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load session from localStorage on mount
+  // Load session and User ID from localStorage on mount
   useEffect(() => {
     const loadSession = () => {
       try {
+        // Get or create User ID (persists even when logged out)
+        const storedUserId = getOrCreateUserId();
+        setUserId(storedUserId);
+
         const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
         if (sessionData) {
           const session: SessionData = JSON.parse(sessionData);
@@ -59,6 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Error loading session:', error);
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        // Still try to get/create User ID even if session load fails
+        try {
+          const storedUserId = getOrCreateUserId();
+          setUserId(storedUserId);
+        } catch (idError) {
+          console.error('Error getting User ID:', idError);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -66,6 +106,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadSession();
   }, []);
+
+  // Expose User ID to window and dataLayer for Redfast/analytics access
+  useEffect(() => {
+    if (typeof window !== 'undefined' && userId) {
+      // Expose to window object for easy access
+      (window as any).coffeeDemoUserId = userId;
+
+      // Initialize dataLayer if it doesn't exist (for Google Tag Manager / Redfast)
+      if (!(window as any).dataLayer) {
+        (window as any).dataLayer = [];
+      }
+
+      // Push User ID to dataLayer
+      (window as any).dataLayer.push({
+        userId: userId,
+        event: 'user_id_ready',
+      });
+
+      console.log('User ID exposed for analytics:', userId);
+    }
+  }, [userId]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; subscriptions?: any[] }> => {
     // Validate email format
@@ -131,6 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setUser(null);
+    // Note: User ID is NOT removed on logout - it persists for analytics tracking
+    // This allows Redfast to continue tracking the same user across sessions
   };
 
   const updateUser = (userData: Partial<User>) => {
@@ -159,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, updateUser, isLoading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, userId, login, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
