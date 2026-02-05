@@ -47,7 +47,7 @@ export function Header() {
               href="/about"
               className="header-link"
             >
-              About Us
+              Articles
             </Link>
           </nav>
 
