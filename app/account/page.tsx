@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
+import { X } from 'lucide-react';
 
 export default function AccountPage() {
   const { user, isAuthenticated, isLoading, logout, updateUser } = useAuth();
@@ -13,6 +14,8 @@ export default function AccountPage() {
   const [isPausing, setIsPausing] = useState<string | null>(null);
   const [isResuming, setIsResuming] = useState<string | null>(null);
   const [isCancelingPause, setIsCancelingPause] = useState<string | null>(null);
+  const [isCanceling, setIsCanceling] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(true);
   const isLoadingRef = useRef(false);
@@ -34,6 +37,23 @@ export default function AccountPage() {
       router.push('/subscriptions');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Function to sort subscriptions by status: active first, paused second, then others
+  const sortSubscriptionsByStatus = useCallback((subs: any[]) => {
+    const statusOrder: { [key: string]: number } = {
+      'active': 1,
+      'paused': 2,
+      'canceled': 3,
+      'expired': 4,
+      'future': 5,
+    };
+    
+    return [...subs].sort((a, b) => {
+      const aOrder = statusOrder[a.state] || 99;
+      const bOrder = statusOrder[b.state] || 99;
+      return aOrder - bOrder;
+    });
+  }, []);
 
   // Function to refresh subscriptions from Recurly
   const refreshSubscriptions = useCallback(async (force: boolean = false) => {
@@ -58,7 +78,7 @@ export default function AccountPage() {
 
       const data = await response.json();
       if (response.ok && data.subscriptions) {
-        setSubscriptions(data.subscriptions);
+        setSubscriptions(sortSubscriptionsByStatus(data.subscriptions));
         
         // Update user object with account information and subscriptions
         // Only update if the data actually changed to prevent loops
@@ -148,10 +168,12 @@ export default function AccountPage() {
       // Optimistically update the subscription state from the API response
       if (data.subscription && data.subscription.state) {
         setSubscriptions((prevSubs) =>
-          prevSubs.map((sub: any) =>
-            sub.uuid === subscription.uuid
-              ? { ...sub, state: data.subscription.state }
-              : sub
+          sortSubscriptionsByStatus(
+            prevSubs.map((sub: any) =>
+              sub.uuid === subscription.uuid
+                ? { ...sub, state: data.subscription.state }
+                : sub
+            )
           )
         );
       }
@@ -205,14 +227,16 @@ export default function AccountPage() {
       // Optimistically update the subscription
       if (data.subscription) {
         setSubscriptions((prevSubs) =>
-          prevSubs.map((sub: any) =>
-            sub.uuid === subscription.uuid
-              ? { 
-                  ...sub, 
-                  state: data.subscription.state,
-                  remainingPauseCycles: data.subscription.remainingPauseCycles || 0,
-                }
-              : sub
+          sortSubscriptionsByStatus(
+            prevSubs.map((sub: any) =>
+              sub.uuid === subscription.uuid
+                ? { 
+                    ...sub, 
+                    state: data.subscription.state,
+                    remainingPauseCycles: data.subscription.remainingPauseCycles || 0,
+                  }
+                : sub
+            )
           )
         );
       }
@@ -230,6 +254,77 @@ export default function AccountPage() {
     } finally {
       setIsCancelingPause(null);
     }
+  };
+
+  const handleCancelClick = (subscription: any) => {
+    // Don't allow canceling already canceled or expired subscriptions
+    if (subscription.state === 'canceled' || subscription.state === 'expired') {
+      showToast('Subscription is already canceled or expired');
+      return;
+    }
+
+    // Set pending cancellation to show confirmation
+    setPendingCancel(subscription.uuid);
+    showToast('Click "Confirm Cancel" to cancel your subscription. It will remain active until the end of the billing period.');
+  };
+
+  const handleCancelConfirm = async (subscription: any) => {
+    setPendingCancel(null);
+    setIsCanceling(subscription.uuid);
+    try {
+      const response = await fetch('/api/recurly/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          subscriptionUuid: subscription.uuid,
+          subscriptionId: subscription.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showToast(data.error || 'Failed to cancel subscription');
+        return;
+      }
+
+      // Optimistically update the subscription
+      if (data.subscription) {
+        setSubscriptions((prevSubs) =>
+          sortSubscriptionsByStatus(
+            prevSubs.map((sub: any) =>
+              sub.uuid === subscription.uuid
+                ? { 
+                    ...sub, 
+                    state: data.subscription.state,
+                    canceledAt: data.subscription.canceledAt,
+                    expiresAt: data.subscription.expiresAt,
+                  }
+                : sub
+            )
+          )
+        );
+      }
+
+      showToast('Subscription canceled successfully. It will remain active until the end of the billing period.');
+      
+      // Wait for Recurly to process the change, then refresh
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refreshSubscriptions(true);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await refreshSubscriptions(true);
+    } catch (error: any) {
+      showToast('An error occurred. Please try again.');
+      console.error('Cancel subscription error:', error);
+    } finally {
+      setIsCanceling(null);
+    }
+  };
+
+  const handleCancelCancel = () => {
+    setPendingCancel(null);
   };
 
   const handleResume = async (subscription: any) => {
@@ -278,10 +373,12 @@ export default function AccountPage() {
       // Optimistically update the subscription state from the API response
       if (data.subscription && data.subscription.state) {
         setSubscriptions((prevSubs) =>
-          prevSubs.map((sub: any) =>
-            sub.uuid === subscription.uuid
-              ? { ...sub, state: data.subscription.state }
-              : sub
+          sortSubscriptionsByStatus(
+            prevSubs.map((sub: any) =>
+              sub.uuid === subscription.uuid
+                ? { ...sub, state: data.subscription.state }
+                : sub
+            )
           )
         );
       }
@@ -383,8 +480,51 @@ export default function AccountPage() {
             {subscriptions.map((subscription: any) => (
               <div
                 key={subscription.uuid}
-                className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                className="relative rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
               >
+                {/* Cancel Plan button - positioned in top right */}
+                {(subscription.state === 'active' || subscription.state === 'paused') && (
+                  <div className="absolute right-4 top-4 group">
+                    {pendingCancel === subscription.uuid ? (
+                      <div className="flex gap-2 items-center bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                        <button
+                          onClick={() => handleCancelConfirm(subscription)}
+                          disabled={isCanceling === subscription.uuid}
+                          className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isCanceling === subscription.uuid ? 'Canceling...' : 'Confirm'}
+                        </button>
+                        <button
+                          onClick={handleCancelCancel}
+                          disabled={isCanceling === subscription.uuid}
+                          className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleCancelClick(subscription)}
+                          disabled={isCanceling === subscription.uuid || pendingCancel !== null}
+                          className="rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+                          title="Cancel Plan"
+                        >
+                          {isCanceling === subscription.uuid ? (
+                            <span className="text-xs">...</span>
+                          ) : (
+                            <X size={18} />
+                          )}
+                        </button>
+                        {/* Tooltip */}
+                        <div className="absolute right-0 top-full mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                          Cancel Plan
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -484,60 +624,62 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 flex gap-3 flex-wrap">
-                  {/* Show pause button for active subscriptions with no scheduled pause */}
-                  {subscription.state === 'active' && (!subscription.remainingPauseCycles || subscription.remainingPauseCycles === 0) && (
-                    <button
-                      onClick={() => handlePause(subscription)}
-                      disabled={isPausing === subscription.uuid}
-                      className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isPausing === subscription.uuid ? 'Pausing...' : 'Pause Subscription'}
-                    </button>
-                  )}
+                <div className="mt-6 flex gap-3 flex-wrap items-start justify-between">
+                  <div className="flex gap-3 flex-wrap">
+                    {/* Show pause button for active subscriptions with no scheduled pause */}
+                    {subscription.state === 'active' && (!subscription.remainingPauseCycles || subscription.remainingPauseCycles === 0) && (
+                      <button
+                        onClick={() => handlePause(subscription)}
+                        disabled={isPausing === subscription.uuid}
+                        className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isPausing === subscription.uuid ? 'Pausing...' : 'Pause Subscription'}
+                      </button>
+                    )}
 
-                  {/* Show cancel pause button for active subscriptions with scheduled pause */}
-                  {subscription.state === 'active' && subscription.remainingPauseCycles > 0 && (
-                    <button
-                      onClick={() => handleCancelPause(subscription)}
-                      disabled={isCancelingPause === subscription.uuid}
-                      className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isCancelingPause === subscription.uuid ? 'Canceling...' : 'Cancel Pause'}
-                    </button>
-                  )}
+                    {/* Show cancel pause button for active subscriptions with scheduled pause */}
+                    {subscription.state === 'active' && subscription.remainingPauseCycles > 0 && (
+                      <button
+                        onClick={() => handleCancelPause(subscription)}
+                        disabled={isCancelingPause === subscription.uuid}
+                        className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isCancelingPause === subscription.uuid ? 'Canceling...' : 'Cancel Pause'}
+                      </button>
+                    )}
 
-                  {/* Show resume button only for paused subscriptions */}
-                  {subscription.state === 'paused' && (
-                    <button
-                      onClick={() => handleResume(subscription)}
-                      disabled={isResuming === subscription.uuid}
-                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isResuming === subscription.uuid ? 'Resuming...' : 'Resume Subscription'}
-                    </button>
-                  )}
-                  
-                  {/* Show info message for canceled subscriptions */}
-                  {subscription.state === 'canceled' && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                      This subscription will expire at the end of the current billing period.
-                    </p>
-                  )}
-                  
-                  {/* Show info message for expired subscriptions */}
-                  {subscription.state === 'expired' && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                      This subscription has expired and cannot be reactivated.
-                    </p>
-                  )}
+                    {/* Show resume button only for paused subscriptions */}
+                    {subscription.state === 'paused' && (
+                      <button
+                        onClick={() => handleResume(subscription)}
+                        disabled={isResuming === subscription.uuid}
+                        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isResuming === subscription.uuid ? 'Resuming...' : 'Resume Subscription'}
+                      </button>
+                    )}
+                    
+                    {/* Show info message for canceled subscriptions */}
+                    {subscription.state === 'canceled' && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                        This subscription will expire at the end of the current billing period.
+                      </p>
+                    )}
+                    
+                    {/* Show info message for expired subscriptions */}
+                    {subscription.state === 'expired' && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                        This subscription has expired and cannot be reactivated.
+                      </p>
+                    )}
 
-                  <Link
-                    href={`/subscriptions/${subscription.planCode}`}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                  >
-                    View Plan Details
-                  </Link>
+                    <Link
+                      href={`/subscriptions/${subscription.planCode}`}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                      View Plan Details
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
