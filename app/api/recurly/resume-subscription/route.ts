@@ -34,20 +34,7 @@ export async function POST(request: NextRequest) {
     // Try ID first if provided, otherwise use UUID
     const identifier = subscriptionId || subscriptionUuid;
     
-    // First, verify the subscription state before attempting to resume
-    try {
-      const currentSubscription = await recurlyClient.getSubscription(identifier);
-      if (currentSubscription.state !== 'paused') {
-        return NextResponse.json(
-          { error: `Subscription is ${currentSubscription.state}, not paused. Cannot resume.` },
-          { status: 400 }
-        );
-      }
-    } catch (getError: any) {
-      // If we can't get the subscription, log but continue (might be a different error)
-      console.log('Could not verify subscription state before resume:', getError?.message);
-    }
-    
+    // Resume subscription using Recurly API
     const subscription = await recurlyClient.resumeSubscription(identifier, {});
 
     return NextResponse.json({
@@ -58,14 +45,28 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Error resuming subscription:', error);
+    console.error('Error resuming subscription:', {
+      message: error?.message,
+      type: error?.type,
+      params: error?.params,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      fullError: error,
+    });
     
     // Provide more user-friendly error messages
     let errorMessage = error?.message || 'Failed to resume subscription';
-    if (errorMessage.includes('active subscription')) {
-      errorMessage = 'Subscription is already active';
-    } else if (errorMessage.includes('not paused')) {
-      errorMessage = 'This subscription is not currently paused';
+    
+    // Check for various error patterns from Recurly
+    if (errorMessage.includes('active subscription') || 
+        errorMessage.includes('not paused') ||
+        errorMessage.includes('active, not paused') ||
+        errorMessage.includes('Cannot resume')) {
+      // This might happen if Recurly hasn't updated the state field yet
+      // even though remainingPauseCycles indicates it's paused
+      errorMessage = 'Subscription state may not be synchronized yet. Recurly requires the subscription to be in "paused" state before resuming. Please wait a moment and refresh the page, then try again.';
+    } else if (errorMessage.includes('Couldn\'t find Subscription')) {
+      errorMessage = 'Subscription not found. Please refresh and try again.';
     }
     
     return NextResponse.json(

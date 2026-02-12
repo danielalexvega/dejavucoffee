@@ -12,6 +12,7 @@ export default function AccountPage() {
   const { showToast } = useToast();
   const [isPausing, setIsPausing] = useState<string | null>(null);
   const [isResuming, setIsResuming] = useState<string | null>(null);
+  const [isCancelingPause, setIsCancelingPause] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(true);
   const isLoadingRef = useRef(false);
@@ -41,14 +42,12 @@ export default function AccountPage() {
     
     // Allow force refresh even if currently loading (for post-operation refreshes)
     if (!force && isLoadingRef.current) {
-      console.log('Skipping refresh - already loading');
       return;
     }
     
     isLoadingRef.current = true;
     setIsLoadingSubscriptions(true);
     try {
-      console.log('Refreshing subscriptions for:', email);
       const response = await fetch('/api/recurly/check-subscriptions', {
         method: 'POST',
         headers: {
@@ -59,13 +58,6 @@ export default function AccountPage() {
 
       const data = await response.json();
       if (response.ok && data.subscriptions) {
-        console.log('Refreshed subscriptions:', data.subscriptions.map((s: any) => ({ 
-          uuid: s.uuid, 
-          state: s.state, 
-          originalState: s.originalState,
-          planCode: s.planCode,
-          pausedAt: s.pausedAt 
-        })));
         setSubscriptions(data.subscriptions);
         
         // Update user object with account information and subscriptions
@@ -121,8 +113,15 @@ export default function AccountPage() {
     if (subscription.state !== 'active') {
       console.warn(`Attempted to pause subscription ${subscription.uuid} but state is ${subscription.state}, not active`);
       showToast(`Cannot pause: subscription is ${subscription.state}`);
-      // Refresh to get the latest state
-      await refreshSubscriptions(true); // Force refresh
+      await refreshSubscriptions(true);
+      return;
+    }
+    
+    // Check if a pause is already scheduled
+    if (subscription.remainingPauseCycles && subscription.remainingPauseCycles > 0) {
+      console.warn(`Attempted to pause subscription ${subscription.uuid} but pause is already scheduled`);
+      showToast('A pause is already scheduled. Cancel it first if you want to change it.');
+      await refreshSubscriptions(true);
       return;
     }
 
@@ -174,18 +173,76 @@ export default function AccountPage() {
     }
   };
 
+  const handleCancelPause = async (subscription: any) => {
+    // Double-check the state before attempting to cancel pause
+    if (subscription.state !== 'active' || !subscription.remainingPauseCycles || subscription.remainingPauseCycles === 0) {
+      console.warn(`Attempted to cancel pause for subscription ${subscription.uuid} but state is ${subscription.state} or no pause scheduled`);
+      showToast('No scheduled pause to cancel');
+      await refreshSubscriptions(true);
+      return;
+    }
+
+    setIsCancelingPause(subscription.uuid);
+    try {
+      const response = await fetch('/api/recurly/cancel-pause', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          subscriptionUuid: subscription.uuid,
+          subscriptionId: subscription.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showToast(data.error || 'Failed to cancel scheduled pause');
+        return;
+      }
+
+      // Optimistically update the subscription
+      if (data.subscription) {
+        setSubscriptions((prevSubs) =>
+          prevSubs.map((sub: any) =>
+            sub.uuid === subscription.uuid
+              ? { 
+                  ...sub, 
+                  state: data.subscription.state,
+                  remainingPauseCycles: data.subscription.remainingPauseCycles || 0,
+                }
+              : sub
+          )
+        );
+      }
+
+      showToast('Scheduled pause canceled successfully');
+      
+      // Wait for Recurly to process the change, then refresh
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refreshSubscriptions(true);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await refreshSubscriptions(true);
+    } catch (error: any) {
+      showToast('An error occurred. Please try again.');
+      console.error('Cancel pause error:', error);
+    } finally {
+      setIsCancelingPause(null);
+    }
+  };
+
   const handleResume = async (subscription: any) => {
     // Double-check the state before attempting to resume
     if (subscription.state !== 'paused') {
-      console.warn(`Attempted to resume subscription ${subscription.uuid} but state is ${subscription.state}, not paused`);
       showToast(`Cannot resume: subscription is ${subscription.state}`);
-      // Refresh to get the latest state
-      await refreshSubscriptions(true); // Force refresh
+      await refreshSubscriptions(true);
       return;
     }
 
     setIsResuming(subscription.uuid);
     try {
+      
       const response = await fetch('/api/recurly/resume-subscription', {
         method: 'POST',
         headers: {
@@ -200,11 +257,18 @@ export default function AccountPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('Resume API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data.error,
+          fullResponse: data,
+        });
+        
         // Check if subscription is already active
         if (data.error && (data.error.includes('active subscription') || data.error.includes('not paused'))) {
           showToast('Subscription is already active');
           // Refresh to get the latest state
-          await refreshSubscriptions();
+          await refreshSubscriptions(true);
         } else {
           showToast(data.error || 'Failed to resume subscription');
         }
@@ -421,14 +485,25 @@ export default function AccountPage() {
                 </div>
 
                 <div className="mt-6 flex gap-3 flex-wrap">
-                  {/* Show pause button only for active subscriptions */}
-                  {subscription.state === 'active' && (
+                  {/* Show pause button for active subscriptions with no scheduled pause */}
+                  {subscription.state === 'active' && (!subscription.remainingPauseCycles || subscription.remainingPauseCycles === 0) && (
                     <button
                       onClick={() => handlePause(subscription)}
                       disabled={isPausing === subscription.uuid}
                       className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isPausing === subscription.uuid ? 'Pausing...' : 'Pause Subscription'}
+                    </button>
+                  )}
+
+                  {/* Show cancel pause button for active subscriptions with scheduled pause */}
+                  {subscription.state === 'active' && subscription.remainingPauseCycles > 0 && (
+                    <button
+                      onClick={() => handleCancelPause(subscription)}
+                      disabled={isCancelingPause === subscription.uuid}
+                      className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isCancelingPause === subscription.uuid ? 'Canceling...' : 'Cancel Pause'}
                     </button>
                   )}
 

@@ -77,7 +77,6 @@ export async function POST(request: NextRequest) {
 
       // Iterate through subscriptions
       if (subscriptionsResponse && typeof subscriptionsResponse.each === 'function') {
-
         for await (const sub of subscriptionsResponse.each()) {
           subscriptions.push(sub);
           // Limit to 100 subscriptions
@@ -89,51 +88,14 @@ export async function POST(request: NextRequest) {
       console.error('Error fetching subscriptions:', error);
     }
 
-    console.log('SUBSCRIPTIONS RAW:', subscriptions.map((sub: any) => ({
-      uuid: sub.uuid,
-      state: sub.state,
-      status: sub.status,
-      pausedAt: sub.pausedAt,
-      remainingPauseCycles: sub.remainingPauseCycles,
-      allKeys: Object.keys(sub).filter(key => key.toLowerCase().includes('state') || key.toLowerCase().includes('status') || key.toLowerCase().includes('pause')),
-    })));
-
     // Format subscription data for frontend
     const formattedSubscriptions = subscriptions.map((sub: any) => {
-      // Check multiple possible state fields
-      // Recurly might use 'state', 'status', or other field names
-      let stateValue = sub.state || sub.status || sub.currentState || '';
-      let normalizedState = stateValue.toLowerCase();
-      
-      // If state is active but subscription has pause indicators, check if it's actually paused
-      // This handles cases where Recurly hasn't updated the state field yet
-      if (normalizedState === 'active') {
-        // Check if subscription is actually paused based on pause-related fields
-        if (sub.remainingPauseCycles && sub.remainingPauseCycles > 0) {
-          normalizedState = 'paused';
-          console.log(`Subscription ${sub.uuid} marked as paused due to remainingPauseCycles: ${sub.remainingPauseCycles}`);
-        } else if (sub.pausedAt && !sub.resumeDate) {
-          // If pausedAt exists but no resumeDate, it might still be paused
-          // Check if pausedAt is recent (within last 30 days) as a heuristic
-          const pausedDate = new Date(sub.pausedAt);
-          const daysSincePaused = (Date.now() - pausedDate.getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSincePaused < 30) {
-            normalizedState = 'paused';
-            console.log(`Subscription ${sub.uuid} marked as paused due to recent pausedAt: ${sub.pausedAt}`);
-          }
-        }
-      }
-      
-      // Log all subscription states for debugging
-      console.log(`Subscription ${sub.uuid} (${sub.plan?.code || 'unknown'}):`, {
-        originalState: sub.state,
-        status: sub.status,
-        currentState: sub.currentState,
-        normalizedState: normalizedState,
-        pausedAt: sub.pausedAt,
-        remainingPauseCycles: sub.remainingPauseCycles,
-        resumeDate: sub.resumeDate,
-      });
+      // Get the state field - Recurly uses 'state' field
+      // IMPORTANT: We must trust Recurly's actual state field, not override it
+      // Recurly's API requires the state to be "paused" before allowing resume
+      // Even if remainingPauseCycles > 0, if state is "active", resume will fail
+      const stateValue = sub.state;
+      const normalizedState = (stateValue || '').toLowerCase();
       
       return {
         uuid: sub.uuid,
