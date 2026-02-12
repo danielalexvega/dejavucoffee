@@ -490,7 +490,7 @@ export default function AccountPage() {
                         <button
                           onClick={() => handleCancelConfirm(subscription)}
                           disabled={isCanceling === subscription.uuid}
-                          className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="cancelButton rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isCanceling === subscription.uuid ? 'Canceling...' : 'Confirm'}
                         </button>
@@ -507,7 +507,7 @@ export default function AccountPage() {
                         <button
                           onClick={() => handleCancelClick(subscription)}
                           disabled={isCanceling === subscription.uuid || pendingCancel !== null}
-                          className="rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+                          className="cancelButton rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
                           title="Cancel Plan"
                         >
                           {isCanceling === subscription.uuid ? (
