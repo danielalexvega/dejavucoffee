@@ -505,7 +505,8 @@ export default function AccountPage() {
                     ) : (
                       <>
                         <button
-                          onClick={() => handleCancelClick(subscription)}
+                          // onClick={() => handleCancelClick(subscription)}
+                          onClick={() => {}} // Temporarily disabled
                           disabled={isCanceling === subscription.uuid || pendingCancel !== null}
                           className="cancelButton rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
                           title="Cancel Plan"
