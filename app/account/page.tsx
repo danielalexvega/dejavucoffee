@@ -509,6 +509,7 @@ export default function AccountPage() {
                           disabled={isCanceling === subscription.uuid || pendingCancel !== null}
                           className="cancelButton rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
                           title="Cancel Plan"
+                          id='cancel-subscription'
                         >
                           {isCanceling === subscription.uuid ? (
                             <span className="text-xs">...</span>
