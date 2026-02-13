@@ -130,13 +130,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </header>
 
 
-
+        <div data-rf-zone="paywall">
         {/* Article Body */}
         {article.body && (
-          <div className="prose prose-lg max-w-none">
+          <div className="prose prose-lg max-w-none article-body">
             <PortableText content={article.body} />
           </div>
         )}
+        </div>
 
         {/* Related Articles */}
         {article.relatedArticles && article.relatedArticles.length > 0 && (
