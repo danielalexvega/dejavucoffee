@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
 import { X } from 'lucide-react';
+import { ChangePlanModal } from '@/components/ChangePlanModal';
 
 export default function AccountPage() {
   const { user, isAuthenticated, isLoading, logout, updateUser } = useAuth();
@@ -17,7 +18,12 @@ export default function AccountPage() {
   const [isCanceling, setIsCanceling] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [childCompanies, setChildCompanies] = useState<{ id: string; code: string; company?: string; email?: string; subscriptions?: any[] }[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(true);
+  const [isChangePlanModalOpen, setIsChangePlanModalOpen] = useState(false);
+  /** When opening Change plan modal, which subscription's plan to show as current */
+  const [changePlanCurrentCode, setChangePlanCurrentCode] = useState<string | null>(null);
   const isLoadingRef = useRef(false);
   const loadedEmailRef = useRef<string | null>(null);
   const userRef = useRef(user);
@@ -79,6 +85,8 @@ export default function AccountPage() {
       const data = await response.json();
       if (response.ok && data.subscriptions) {
         setSubscriptions(sortSubscriptionsByStatus(data.subscriptions));
+        setCompanyName(data.account?.company ?? null);
+        setChildCompanies(Array.isArray(data.childAccounts) ? data.childAccounts : []);
         
         // Update user object with account information and subscriptions
         // Only update if the data actually changed to prevent loops
@@ -449,7 +457,33 @@ export default function AccountPage() {
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Welcome back, {user.firstName} {user.lastName}
           </p>
+          {companyName && (
+            <p className="mt-1 text-gray-600 dark:text-gray-400">
+              Company: {companyName}
+            </p>
+          )}
         </div>
+
+        {childCompanies.length > 0 && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Child companies
+            </h2>
+            <ul className="space-y-2">
+              {childCompanies.map((child) => (
+                <li
+                  key={child.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <span className="font-medium">{child.company || 'Child account'}</span>
+                  {child.email && (
+                    <span className="text-gray-500 dark:text-gray-400">{child.email}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* <div className="mb-6 flex justify-end">
           <button
@@ -460,7 +494,10 @@ export default function AccountPage() {
           </button>
         </div> */}
 
-        {!subscriptions || subscriptions.length === 0 ? (
+        {(() => {
+          const childSubCount = childCompanies.reduce((n, c) => n + (c.subscriptions?.length ?? 0), 0);
+          const totalSubscriptionCount = subscriptions.length + childSubCount;
+          return totalSubscriptionCount === 0 ? (
           <div className="rounded-lg bg-yellow-50 p-6 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
             <h3 className="mb-2 font-semibold">No Subscriptions Found</h3>
             <p className="mb-4">You don't have any active subscriptions.</p>
@@ -474,10 +511,19 @@ export default function AccountPage() {
         ) : (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              Your Subscriptions ({subscriptions.length})
+              Your Subscriptions ({totalSubscriptionCount})
             </h2>
 
-            {subscriptions.map((subscription: any) => (
+            <ChangePlanModal
+              isOpen={isChangePlanModalOpen}
+              onClose={() => {
+                setIsChangePlanModalOpen(false);
+                setChangePlanCurrentCode(null);
+              }}
+              currentPlanCode={changePlanCurrentCode}
+            />
+
+            {subscriptions.length > 0 && subscriptions.map((subscription: any) => (
               <div
                 key={subscription.uuid}
                 className="relative rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -675,6 +721,19 @@ export default function AccountPage() {
                       </p>
                     )}
 
+                    {subscription.state !== 'canceled' && subscription.state !== 'expired' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChangePlanCurrentCode(subscription.planCode);
+                          setIsChangePlanModalOpen(true);
+                        }}
+                        className="rounded-lg bg-slate px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta dark:bg-slate dark:hover:bg-charcoal"
+                      >
+                        Change plan
+                      </button>
+                    )}
+
                     <Link
                       href={`/subscriptions/${subscription.planCode}`}
                       className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
@@ -685,8 +744,201 @@ export default function AccountPage() {
                 </div>
               </div>
             ))}
+
+            {childCompanies.filter((c) => (c.subscriptions?.length ?? 0) > 0).map((child) => (
+              <div key={child.id} className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Subscriptions for {child.company || 'Child account'}
+                </h3>
+                {child.subscriptions!.map((subscription: any) => (
+                  <div
+                    key={subscription.uuid}
+                    className="relative rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    {(subscription.state === 'active' || subscription.state === 'paused') && (
+                      <div className="absolute right-4 top-4 group">
+                        {pendingCancel === subscription.uuid ? (
+                          <div className="flex gap-2 items-center bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                            <button
+                              onClick={() => handleCancelConfirm(subscription)}
+                              disabled={isCanceling === subscription.uuid}
+                              className="cancelButton rounded bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isCanceling === subscription.uuid ? 'Canceling...' : 'Confirm'}
+                            </button>
+                            <button
+                              onClick={() => handleCancelCancel}
+                              disabled={isCanceling === subscription.uuid}
+                              className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-300 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => {}}
+                              disabled={isCanceling === subscription.uuid || pendingCancel !== null}
+                              className="cancelButton rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+                              title="Cancel Plan"
+                            >
+                              {isCanceling === subscription.uuid ? (
+                                <span className="text-xs">...</span>
+                              ) : (
+                                <X size={18} />
+                              )}
+                            </button>
+                            <div className="absolute right-0 top-full mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                              Cancel Plan
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {subscription.planName || 'Subscription'}
+                        </h3>
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  subscription.state === 'active'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                    : subscription.state === 'paused'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                    : subscription.state === 'canceled'
+                                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                                    : subscription.state === 'expired'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                    : subscription.state === 'future'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                {subscription.state.charAt(0).toUpperCase() + subscription.state.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Amount</p>
+                            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                              {subscription.unitAmount
+                                ? formatCurrency(subscription.unitAmount, subscription.currency)
+                                : 'N/A'}{' '}
+                              {subscription.quantity > 1 && `× ${subscription.quantity}`}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Period Start</p>
+                            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                              {formatDate(subscription.currentPeriodStart)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Period End</p>
+                            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                              {formatDate(subscription.currentPeriodEnd)}
+                            </p>
+                          </div>
+                          {subscription.state === 'paused' && subscription.pausedAt && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Paused Since</p>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {formatDate(subscription.pausedAt)}
+                              </p>
+                            </div>
+                          )}
+                          {subscription.state === 'canceled' && subscription.canceledAt && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Canceled On</p>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {formatDate(subscription.canceledAt)}
+                              </p>
+                            </div>
+                          )}
+                          {subscription.expiresAt && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                {subscription.state === 'canceled' ? 'Expires On' : 'Expires At'}
+                              </p>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {formatDate(subscription.expiresAt)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex gap-3 flex-wrap items-start justify-between">
+                      <div className="flex gap-3 flex-wrap">
+                        {subscription.state === 'active' && (!subscription.remainingPauseCycles || subscription.remainingPauseCycles === 0) && (
+                          <button
+                            onClick={() => handlePause(subscription)}
+                            disabled={isPausing === subscription.uuid}
+                            className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isPausing === subscription.uuid ? 'Pausing...' : 'Pause Subscription'}
+                          </button>
+                        )}
+                        {subscription.state === 'active' && subscription.remainingPauseCycles > 0 && (
+                          <button
+                            onClick={() => handleCancelPause(subscription)}
+                            disabled={isCancelingPause === subscription.uuid}
+                            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isCancelingPause === subscription.uuid ? 'Canceling...' : 'Cancel Pause'}
+                          </button>
+                        )}
+                        {subscription.state === 'paused' && (
+                          <button
+                            onClick={() => handleResume(subscription)}
+                            disabled={isResuming === subscription.uuid}
+                            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isResuming === subscription.uuid ? 'Resuming...' : 'Resume Subscription'}
+                          </button>
+                        )}
+                        {subscription.state === 'canceled' && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                            This subscription will expire at the end of the current billing period.
+                          </p>
+                        )}
+                        {subscription.state === 'expired' && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                            This subscription has expired and cannot be reactivated.
+                          </p>
+                        )}
+                        {subscription.state !== 'canceled' && subscription.state !== 'expired' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setChangePlanCurrentCode(subscription.planCode);
+                              setIsChangePlanModalOpen(true);
+                            }}
+                            className="rounded-lg bg-slate px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta dark:bg-slate dark:hover:bg-charcoal"
+                          >
+                            Change plan
+                          </button>
+                        )}
+                        <Link
+                          href={`/subscriptions/${subscription.planCode}`}
+                          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                        >
+                          View Plan Details
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-        )}
+        );
+        })()}
       </div>
     </div>
   );

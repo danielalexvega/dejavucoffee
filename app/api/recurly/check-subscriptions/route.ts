@@ -65,6 +65,68 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Helper to format subscription for frontend
+    const formatSub = (sub: any) => {
+      const stateValue = sub.state;
+      const normalizedState = (stateValue || '').toLowerCase();
+      return {
+        uuid: sub.uuid,
+        id: sub.id,
+        state: normalizedState,
+        planCode: sub.plan?.code,
+        planName: sub.plan?.name,
+        currentPeriodStart: sub.currentPeriodStartedAt,
+        currentPeriodEnd: sub.currentPeriodEndsAt,
+        quantity: sub.quantity,
+        unitAmount: sub.unitAmount,
+        currency: sub.currency,
+        accountId: sub.account?.id,
+        pausedAt: sub.pausedAt,
+        canceledAt: sub.canceledAt,
+        expiresAt: sub.expiresAt,
+        trialEndsAt: sub.trialEndsAt,
+        currentTermEndsAt: sub.currentTermEndsAt,
+        remainingPauseCycles: sub.remainingPauseCycles,
+        originalState: sub.state,
+      };
+    };
+
+    // Get child accounts (if this account is a parent) and their subscriptions
+    const childAccounts: { id: string; code: string; company?: string | null; email?: string | null; subscriptions: ReturnType<typeof formatSub>[] }[] = [];
+    try {
+      const childAccountsResponse = recurlyClient.listChildAccounts(account.id, {
+        params: { limit: 200 },
+      });
+      if (childAccountsResponse && typeof childAccountsResponse.each === 'function') {
+        for await (const child of childAccountsResponse.each()) {
+          const childSubs: ReturnType<typeof formatSub>[] = [];
+          try {
+            const childSubsResponse = recurlyClient.listSubscriptions({
+              params: { accountId: child.id },
+            });
+            if (childSubsResponse && typeof childSubsResponse.each === 'function') {
+              for await (const sub of childSubsResponse.each()) {
+                childSubs.push(formatSub(sub));
+                if (childSubs.length >= 100) break;
+              }
+            }
+          } catch (subErr) {
+            console.warn('Could not list subscriptions for child', child.id, (subErr as Error)?.message);
+          }
+          childAccounts.push({
+            id: child.id,
+            code: child.code,
+            company: child.company ?? undefined,
+            email: child.email ?? undefined,
+            subscriptions: childSubs,
+          });
+        }
+      }
+    } catch (childErr) {
+      // Account hierarchy may not be enabled; ignore and continue
+      console.warn('Could not list child accounts:', (childErr as Error)?.message);
+    }
+
     // Get subscriptions for this account
     // Recurly Client v4 uses listSubscriptions which returns an iterator
     const subscriptions: any[] = [];
@@ -89,39 +151,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Format subscription data for frontend
-    const formattedSubscriptions = subscriptions.map((sub: any) => {
-      // Get the state field - Recurly uses 'state' field
-      // IMPORTANT: We must trust Recurly's actual state field, not override it
-      // Recurly's API requires the state to be "paused" before allowing resume
-      // Even if remainingPauseCycles > 0, if state is "active", resume will fail
-      const stateValue = sub.state;
-      const normalizedState = (stateValue || '').toLowerCase();
-      
-      return {
-        uuid: sub.uuid,
-        id: sub.id, // Include ID as well in case it's needed for pause/resume
-        state: normalizedState, // Normalized state: active, paused, canceled, expired, future
-        planCode: sub.plan?.code,
-        planName: sub.plan?.name,
-        currentPeriodStart: sub.currentPeriodStartedAt,
-        currentPeriodEnd: sub.currentPeriodEndsAt,
-        quantity: sub.quantity,
-        unitAmount: sub.unitAmount,
-        currency: sub.currency,
-        accountId: sub.account?.id,
-        // Additional status-related fields
-        pausedAt: sub.pausedAt,
-        canceledAt: sub.canceledAt,
-        expiresAt: sub.expiresAt,
-        trialEndsAt: sub.trialEndsAt,
-        // Current term information
-        currentTermEndsAt: sub.currentTermEndsAt,
-        // Include remainingPauseCycles for reference
-        remainingPauseCycles: sub.remainingPauseCycles,
-        // Include original state for debugging
-        originalState: sub.state,
-      };
-    });
+    const formattedSubscriptions = subscriptions.map((sub: any) => formatSub(sub));
 
     return NextResponse.json({
       subscriptions: formattedSubscriptions,
@@ -130,7 +160,10 @@ export async function POST(request: NextRequest) {
         email: account.email,
         firstName: account.firstName,
         lastName: account.lastName,
+        company: account.company ?? undefined,
+        parentAccountId: account.parentAccountId ?? undefined,
       },
+      childAccounts,
     });
   } catch (error: any) {
     console.error('Error checking subscriptions:', error);
