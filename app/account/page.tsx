@@ -24,6 +24,8 @@ export default function AccountPage() {
   const [isChangePlanModalOpen, setIsChangePlanModalOpen] = useState(false);
   /** When opening Change plan modal, which subscription's plan to show as current */
   const [changePlanCurrentCode, setChangePlanCurrentCode] = useState<string | null>(null);
+  /** Subscription UUID for the subscription being changed (required for change-plan API) */
+  const [changePlanSubscriptionUuid, setChangePlanSubscriptionUuid] = useState<string | null>(null);
   const isLoadingRef = useRef(false);
   const loadedEmailRef = useRef<string | null>(null);
   const userRef = useRef(user);
@@ -519,8 +521,14 @@ export default function AccountPage() {
               onClose={() => {
                 setIsChangePlanModalOpen(false);
                 setChangePlanCurrentCode(null);
+                setChangePlanSubscriptionUuid(null);
               }}
               currentPlanCode={changePlanCurrentCode}
+              subscriptionUuid={changePlanSubscriptionUuid}
+              onSwitchSuccess={() => {
+                refreshSubscriptions(true);
+                showToast('Plan changed successfully');
+              }}
             />
 
             {subscriptions.length > 0 && subscriptions.map((subscription: any) => (
@@ -726,6 +734,7 @@ export default function AccountPage() {
                         type="button"
                         onClick={() => {
                           setChangePlanCurrentCode(subscription.planCode);
+                          setChangePlanSubscriptionUuid(subscription.uuid);
                           setIsChangePlanModalOpen(true);
                         }}
                         className="rounded-lg bg-slate px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta dark:bg-slate dark:hover:bg-charcoal"
@@ -917,6 +926,7 @@ export default function AccountPage() {
                             type="button"
                             onClick={() => {
                               setChangePlanCurrentCode(subscription.planCode);
+                              setChangePlanSubscriptionUuid(subscription.uuid);
                               setIsChangePlanModalOpen(true);
                             }}
                             className="rounded-lg bg-slate px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta dark:bg-slate dark:hover:bg-charcoal"
